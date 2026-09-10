@@ -24,3 +24,12 @@ export async function getCashOrBankAccounts() {
     SELECT id, code, name FROM accounts WHERE system_role = 'cash_or_bank' AND is_active = true ORDER BY code
   `;
 }
+
+/** The contra-revenue account (code 4900) credit notes post against. */
+export async function getSalesReturnsAccount() {
+  const [account] = await sql`SELECT id, code, name FROM accounts WHERE code = '4900' AND is_active = true`;
+  if (!account) {
+    throw new Error("Sales Returns & Allowances account (4900) not found — run 008_credit_notes.sql.");
+  }
+  return account;
+}

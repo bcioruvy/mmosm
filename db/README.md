@@ -74,3 +74,12 @@ baseline instead of against memory.
   payment (their status already had a 'partial' state); on-credit
   expenses are pay-in-full only for now — expenses.payment_status is
   still just paid/unpaid, unchanged by this migration.
+- `008_credit_notes.sql` — adds account 4900 "Sales Returns &
+  Allowances" (contra-revenue, so refunds show separately on the P&L
+  instead of netting against Revenue) and creates `credit_notes`
+  against a specific invoice. Two modes: "apply_to_balance" (Dr
+  returns account, Cr Accounts Receivable, capped at the invoice's
+  remaining balance) or "refund_cash" (Dr returns account, Cr a
+  chosen cash/bank account, capped at what's actually been paid so
+  far). Vendor-side refunds (a vendor refunding an on-credit expense)
+  are not built here — deferred, not silently dropped.

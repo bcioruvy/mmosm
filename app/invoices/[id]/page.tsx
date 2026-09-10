@@ -4,8 +4,10 @@ import { redirect, notFound } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
+import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { sendInvoice, deleteInvoiceDraft } from "../actions";
 import { recordInvoicePayment } from "../../payments/actions";
+import { issueCreditNote } from "../../credit-notes/actions";
 
 export default async function InvoiceDetailPage({
   params,
@@ -36,16 +38,27 @@ export default async function InvoiceDetailPage({
   `;
   const total = lines.reduce((sum: number, l: any) => sum + Number(l.line_total), 0);
 
-  const payments = await sql`
-    SELECT p.id, p.payment_date, p.amount, acc.code AS account_code, acc.name AS account_name
-    FROM payments p JOIN accounts acc ON acc.id = p.account_id
-    WHERE p.applied_to_type = 'invoice' AND p.applied_to_id = ${params.id}
-    ORDER BY p.payment_date DESC, p.id DESC
-  `;
-  const paid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-  const remaining = Math.round((total - paid) * 100) / 100;
+  const isOpen = invoice.status === "sent" || invoice.status === "partial";
+  const isPostedAtAll = isOpen || invoice.status === "paid";
 
-  const cashAccounts = invoice.status === "sent" || invoice.status === "partial" ? await getCashOrBankAccounts() : [];
+  const [payments, creditNotes, balance, cashAccounts] = await Promise.all([
+    sql`
+      SELECT p.id, p.payment_date, p.amount, acc.code AS account_code, acc.name AS account_name
+      FROM payments p JOIN accounts acc ON acc.id = p.account_id
+      WHERE p.applied_to_type = 'invoice' AND p.applied_to_id = ${params.id}
+      ORDER BY p.payment_date DESC, p.id DESC
+    `,
+    sql`
+      SELECT cn.id, cn.credit_note_number, cn.credit_date, cn.amount, cn.reason,
+        ra.code AS refund_account_code, ra.name AS refund_account_name
+      FROM credit_notes cn
+      LEFT JOIN accounts ra ON ra.id = cn.refund_account_id
+      WHERE cn.invoice_id = ${params.id}
+      ORDER BY cn.credit_date DESC, cn.id DESC
+    `,
+    isPostedAtAll ? getInvoiceBalance(params.id) : Promise.resolve(null),
+    isPostedAtAll ? getCashOrBankAccounts() : Promise.resolve([]),
+  ]);
 
   return (
     <main style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
@@ -113,11 +126,12 @@ export default async function InvoiceDetailPage({
         </div>
       )}
 
-      {(invoice.status === "sent" || invoice.status === "partial" || invoice.status === "paid") && (
+      {isPostedAtAll && balance && (
         <>
           <h2 style={{ marginTop: 32 }}>Payments</h2>
           <p>
-            Paid: {formatCurrency(paid)} — Remaining: {formatCurrency(remaining)}
+            Paid: {formatCurrency(balance.paid)} — Credited to balance: {formatCurrency(balance.creditedToAR)} —
+            Remaining owed: {formatCurrency(balance.remainingOwed)}
           </p>
           <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
             <thead>
@@ -140,7 +154,7 @@ export default async function InvoiceDetailPage({
             </tbody>
           </table>
 
-          {(invoice.status === "sent" || invoice.status === "partial") && (
+          {isOpen && (
             <>
               {cashAccounts.length === 0 && (
                 <p style={{ color: "#b00020" }}>
@@ -149,7 +163,10 @@ export default async function InvoiceDetailPage({
                 </p>
               )}
               {cashAccounts.length > 0 && (
-                <form action={recordInvoicePayment} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <form
+                  action={recordInvoicePayment}
+                  style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+                >
                   <input type="hidden" name="invoiceId" value={invoice.id} />
                   <input name="paymentDate" type="date" required />
                   <select name="accountId" required defaultValue="">
@@ -162,11 +179,74 @@ export default async function InvoiceDetailPage({
                       </option>
                     ))}
                   </select>
-                  <input name="amount" type="number" step="0.01" min="0.01" max={remaining} placeholder="Amount" required />
+                  <input
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={balance.remainingOwed}
+                    placeholder="Amount"
+                    required
+                  />
                   <button type="submit">Record payment</button>
                 </form>
               )}
             </>
+          )}
+
+          <h2 style={{ marginTop: 32 }}>Credit notes</h2>
+          {creditNotes.length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
+                  <th>Number</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Type</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {creditNotes.map((cn: any) => (
+                  <tr key={cn.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td>{cn.credit_note_number}</td>
+                    <td>{new Date(cn.credit_date).toLocaleDateString()}</td>
+                    <td>{formatCurrency(Number(cn.amount))}</td>
+                    <td>
+                      {cn.refund_account_code
+                        ? `Cash refund (${cn.refund_account_code} — ${cn.refund_account_name})`
+                        : "Applied to balance owed"}
+                    </td>
+                    <td>{cn.reason ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {(balance.remainingOwed > 0.001 || balance.refundableCash > 0.001) && (
+            <form action={issueCreditNote} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input type="hidden" name="invoiceId" value={invoice.id} />
+              <input name="creditDate" type="date" required />
+              <input name="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required />
+              <select name="mode" required defaultValue="">
+                <option value="" disabled>
+                  Type…
+                </option>
+                {balance.remainingOwed > 0.001 && <option value="apply_to_balance">Apply to balance owed</option>}
+                {balance.refundableCash > 0.001 && <option value="refund_cash">Refund via cash/bank</option>}
+              </select>
+              <select name="refundAccountId" defaultValue="">
+                <option value="">(only for cash refund)</option>
+                {cashAccounts.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.code} — {a.name}
+                  </option>
+                ))}
+              </select>
+              <input name="reason" placeholder="Reason" />
+              <button type="submit">Issue credit note</button>
+            </form>
           )}
         </>
       )}

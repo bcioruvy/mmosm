@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { postJournalEntry } from "@/lib/journal";
 import { getAccountsReceivableAccount, getAccountsPayableAccount } from "@/lib/controlAccounts";
+import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -95,22 +96,20 @@ export async function recordInvoicePayment(formData: FormData) {
     redirect(`/invoices/${invoiceId}?error=${encodeURIComponent("This invoice isn't open for payment.")}`);
   }
 
-  const [{ total }] = await sql`SELECT COALESCE(SUM(line_total), 0) AS total FROM invoice_lines WHERE invoice_id = ${invoiceId}`;
-  const [{ paid }] = await sql`
-    SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE applied_to_type = 'invoice' AND applied_to_id = ${invoiceId}
-  `;
-  const remaining = Math.round((Number(total) - Number(paid)) * 100) / 100;
+  const balance = await getInvoiceBalance(invoiceId);
 
-  if (amount > remaining + 0.001) {
-    redirect(`/invoices/${invoiceId}?error=${encodeURIComponent(`Amount exceeds the remaining balance of Rs ${remaining.toFixed(2)}.`)}`);
+  if (amount > balance.remainingOwed + 0.001) {
+    redirect(
+      `/invoices/${invoiceId}?error=${encodeURIComponent(`Amount exceeds the remaining balance of Rs ${balance.remainingOwed.toFixed(2)}.`)}`
+    );
   }
 
   let error: string | null = null;
   try {
     await assertCashOrBankAccount(accountId);
     const ar = await getAccountsReceivableAccount();
-    const newPaid = Math.round((Number(paid) + amount) * 100) / 100;
-    const newStatus = newPaid >= Number(total) ? "paid" : "partial";
+    const newRemaining = Math.round((balance.remainingOwed - amount) * 100) / 100;
+    const newStatus = newRemaining <= 0.001 ? "paid" : "partial";
 
     await postJournalEntry({
       entryDate: paymentDate,
