@@ -55,3 +55,6 @@ baseline instead of against memory.
   if put "on credit". No edit/void yet — paying off an on-credit expense
   later, and any correction flow, is part of the upcoming Payments and
   Refunds slices.
+- `005_income.sql` — creates `income` (non-sale income only). Always
+  received immediately: Dr the chosen cash/bank account, Cr the chosen
+  revenue category account.
