@@ -1,0 +1,24 @@
+import { signIn } from "@/auth";
+
+export default function LoginPage() {
+  return (
+    <main style={{ maxWidth: 360, margin: "80px auto", padding: 24 }}>
+      <h1>Sign in</h1>
+      <form
+        action={async (formData: FormData) => {
+          "use server";
+          await signIn("credentials", {
+            email: formData.get("email"),
+            password: formData.get("password"),
+            redirectTo: "/",
+          });
+        }}
+        style={{ display: "flex", flexDirection: "column", gap: 12 }}
+      >
+        <input name="email" type="email" placeholder="Email" required />
+        <input name="password" type="password" placeholder="Password" required />
+        <button type="submit">Sign in</button>
+      </form>
+    </main>
+  );
+}
