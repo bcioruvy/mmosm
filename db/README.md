@@ -66,3 +66,11 @@ baseline instead of against memory.
   Line items are free-text (no product table — Stage 5). No edit after
   creation; a draft can be deleted outright (nothing posted yet), a sent
   invoice cannot be changed — corrections are Refunds/credit notes.
+- `007_payments.sql` — creates `payments`, shared by both directions:
+  invoice receipts (`direction='in'`, `applied_to_type='invoice'`) and
+  bill/on-credit-expense payments (`direction='out'`,
+  `applied_to_type='expense'`). `applied_to_id` is polymorphic (bigint,
+  matches both invoices.id and expenses.id). Invoices support partial
+  payment (their status already had a 'partial' state); on-credit
+  expenses are pay-in-full only for now — expenses.payment_status is
+  still just paid/unpaid, unchanged by this migration.

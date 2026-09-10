@@ -3,7 +3,9 @@ import sql from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
+import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { sendInvoice, deleteInvoiceDraft } from "../actions";
+import { recordInvoicePayment } from "../../payments/actions";
 
 export default async function InvoiceDetailPage({
   params,
@@ -33,6 +35,17 @@ export default async function InvoiceDetailPage({
     FROM invoice_lines WHERE invoice_id = ${params.id} ORDER BY id
   `;
   const total = lines.reduce((sum: number, l: any) => sum + Number(l.line_total), 0);
+
+  const payments = await sql`
+    SELECT p.id, p.payment_date, p.amount, acc.code AS account_code, acc.name AS account_name
+    FROM payments p JOIN accounts acc ON acc.id = p.account_id
+    WHERE p.applied_to_type = 'invoice' AND p.applied_to_id = ${params.id}
+    ORDER BY p.payment_date DESC, p.id DESC
+  `;
+  const paid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const remaining = Math.round((total - paid) * 100) / 100;
+
+  const cashAccounts = invoice.status === "sent" || invoice.status === "partial" ? await getCashOrBankAccounts() : [];
 
   return (
     <main style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
@@ -98,6 +111,64 @@ export default async function InvoiceDetailPage({
             <button type="submit">Delete draft</button>
           </form>
         </div>
+      )}
+
+      {(invoice.status === "sent" || invoice.status === "partial" || invoice.status === "paid") && (
+        <>
+          <h2 style={{ marginTop: 32 }}>Payments</h2>
+          <p>
+            Paid: {formatCurrency(paid)} — Remaining: {formatCurrency(remaining)}
+          </p>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
+                <th>Date</th>
+                <th>Account</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p: any) => (
+                <tr key={p.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                  <td>
+                    {p.account_code} — {p.account_name}
+                  </td>
+                  <td>{formatCurrency(Number(p.amount))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {(invoice.status === "sent" || invoice.status === "partial") && (
+            <>
+              {cashAccounts.length === 0 && (
+                <p style={{ color: "#b00020" }}>
+                  No account is tagged "Cash or Bank" yet — tag one on{" "}
+                  <a href="/accounts">Chart of Accounts</a> to record a payment.
+                </p>
+              )}
+              {cashAccounts.length > 0 && (
+                <form action={recordInvoicePayment} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input type="hidden" name="invoiceId" value={invoice.id} />
+                  <input name="paymentDate" type="date" required />
+                  <select name="accountId" required defaultValue="">
+                    <option value="" disabled>
+                      Received into…
+                    </option>
+                    {cashAccounts.map((a: any) => (
+                      <option key={a.id} value={a.id}>
+                        {a.code} — {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input name="amount" type="number" step="0.01" min="0.01" max={remaining} placeholder="Amount" required />
+                  <button type="submit">Record payment</button>
+                </form>
+              )}
+            </>
+          )}
+        </>
       )}
     </main>
   );

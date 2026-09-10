@@ -20,6 +20,7 @@ export default async function Home() {
         {permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS) && <a href="/expenses">Expenses</a>}
         {permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS) && <a href="/income">Income</a>}
         {permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS) && <a href="/invoices">Invoices</a>}
+        {permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS) && <a href="/payments">Payments</a>}
         {permissions.includes(PERMISSIONS.MANAGE_USERS) && <a href="/users">Users</a>}
         <a href="/change-password">Change password</a>
       </nav>

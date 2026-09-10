@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
 import { createExpense } from "./actions";
+import { payExpense } from "../payments/actions";
 
 export default async function ExpensesPage({
   searchParams,
@@ -60,6 +61,7 @@ export default async function ExpensesPage({
             <th>Amount</th>
             <th>Status</th>
             <th>Notes</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -75,6 +77,25 @@ export default async function ExpensesPage({
                 {e.payment_status === "paid" ? `Paid (${e.payment_code} ${e.payment_name})` : "Unpaid (bill)"}
               </td>
               <td>{e.notes ?? ""}</td>
+              <td>
+                {e.payment_status === "unpaid" && cashAccounts.length > 0 && (
+                  <form action={payExpense} style={{ display: "flex", gap: 4 }}>
+                    <input type="hidden" name="expenseId" value={e.id} />
+                    <input name="paymentDate" type="date" required style={{ width: 130 }} />
+                    <select name="accountId" required defaultValue="">
+                      <option value="" disabled>
+                        Pay from…
+                      </option>
+                      {cashAccounts.map((a: any) => (
+                        <option key={a.id} value={a.id}>
+                          {a.code} — {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit">Pay</button>
+                  </form>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
