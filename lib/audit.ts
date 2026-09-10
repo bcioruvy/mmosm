@@ -9,7 +9,7 @@ export async function logAudit(params: {
 }) {
   const { actorId, action, entityType, entityId, details } = params;
   await sql`
-    INSERT INTO audit_log (actor, action, entity_type, entity_id, details)
+    INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
     VALUES (${actorId}, ${action}, ${entityType}, ${String(entityId)}, ${sql.json((details ?? {}) as any)})
   `;
 }

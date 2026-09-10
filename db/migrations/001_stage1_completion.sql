@@ -8,12 +8,14 @@
 --   * users.id / roles.id / roles.name / roles.permissions / users.role_id
 --     / users.is_active / users.password_hash are all already confirmed
 --     live (auth.ts already queries them successfully).
---   * audit_log's column names (actor, action, entity_type, entity_id,
---     details, timestamp) are taken as given; the CREATE TABLE below is a
---     defensive fallback only — if the table already exists with these
---     names (as described), it's a no-op. If it exists with *different*
---     column names, the app's lib/audit.ts insert will fail until this
---     migration or lib/audit.ts is adjusted to match reality.
+--   * audit_log's column names were originally guessed and got one wrong:
+--     the live table uses `actor_id`, not `actor` (confirmed against the
+--     real schema after a production 500 on 2026-09-10; lib/audit.ts and
+--     the CREATE TABLE below have been corrected to match). This
+--     CREATE TABLE is a defensive fallback only — on the already-live DB
+--     it was always a no-op, so this correction doesn't need re-running;
+--     it's fixed here so a fresh database created from this file matches
+--     reality.
 --
 -- Safe to run more than once.
 
@@ -26,7 +28,7 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT
 -- Audit log: create only if it doesn't already exist under this name.
 CREATE TABLE IF NOT EXISTS audit_log (
   id bigserial PRIMARY KEY,
-  actor bigint REFERENCES users(id),
+  actor_id bigint REFERENCES users(id),
   action text NOT NULL,
   entity_type text NOT NULL,
   entity_id text NOT NULL,
