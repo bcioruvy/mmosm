@@ -58,3 +58,11 @@ baseline instead of against memory.
 - `005_income.sql` — creates `income` (non-sale income only). Always
   received immediately: Dr the chosen cash/bank account, Cr the chosen
   revenue category account.
+- `006_invoicing.sql` — creates `invoices`/`invoice_lines` and an
+  `invoice_number_seq` sequence (numbers as INV-00001, INV-00002, ... —
+  no per-year reset; easy to change, only referenced here and in
+  app/invoices/actions.ts). Draft invoices don't touch the ledger;
+  "Send" posts Dr Accounts Receivable / Cr the invoice's revenue account.
+  Line items are free-text (no product table — Stage 5). No edit after
+  creation; a draft can be deleted outright (nothing posted yet), a sent
+  invoice cannot be changed — corrections are Refunds/credit notes.
