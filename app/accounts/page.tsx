@@ -2,9 +2,15 @@ import { auth } from "@/auth";
 import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
-import { createAccount, updateAccount, setAccountActive } from "./actions";
+import { createAccount, updateAccount, setAccountActive, setAccountSystemRole } from "./actions";
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "cogs", "expense"];
+const SYSTEM_ROLES = [
+  { value: "", label: "—" },
+  { value: "accounts_receivable", label: "Accounts Receivable" },
+  { value: "accounts_payable", label: "Accounts Payable" },
+  { value: "cash_or_bank", label: "Cash or Bank" },
+];
 
 export default async function AccountsPage({
   searchParams,
@@ -18,11 +24,11 @@ export default async function AccountsPage({
   }
 
   const accounts = await sql`
-    SELECT id, code, name, type, is_active FROM accounts ORDER BY code
+    SELECT id, code, name, type, is_active, system_role FROM accounts ORDER BY code
   `;
 
   return (
-    <main style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 900, margin: "40px auto", padding: 24 }}>
       <p>
         <a href="/">&larr; Home</a>
       </p>
@@ -35,6 +41,7 @@ export default async function AccountsPage({
             <th>Code</th>
             <th>Name / Type</th>
             <th>Status</th>
+            <th>Role</th>
             <th></th>
           </tr>
         </thead>
@@ -57,6 +64,19 @@ export default async function AccountsPage({
                 </form>
               </td>
               <td>{a.is_active ? "Active" : "Inactive"}</td>
+              <td>
+                <form action={setAccountSystemRole} style={{ display: "flex", gap: 8 }}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <select name="systemRole" defaultValue={a.system_role ?? ""}>
+                    {SYSTEM_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit">Save</button>
+                </form>
+              </td>
               <td>
                 <form action={setAccountActive}>
                   <input type="hidden" name="id" value={a.id} />

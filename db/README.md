@@ -23,3 +23,11 @@ baseline instead of against memory.
   creates `audit_log` if it doesn't already match the assumed shape, and
   seeds `roles.permissions` for the three roles (first real use of that
   column).
+- `002_customers_vendors.sql` — creates `customers` and `vendors` (master
+  data only, no journal entries of their own).
+- `003_control_accounts.sql` — adds `accounts.system_role` so app code can
+  find the Accounts Receivable / Accounts Payable / Cash-or-Bank accounts
+  by tag instead of guessing by name. At most one account can be tagged
+  `accounts_receivable`, at most one `accounts_payable`; any number can be
+  `cash_or_bank`. Tag accounts from the Chart of Accounts UI after running
+  this.

@@ -35,11 +35,17 @@ export const authConfig: NextAuthConfig = {
       const { pathname } = request.nextUrl;
       const permissions = session.user.permissions ?? [];
 
-      if (pathname.startsWith("/accounts") && !permissions.includes(PERMISSIONS.MANAGE_ACCOUNTS)) {
-        return Response.redirect(new URL("/", request.nextUrl));
-      }
-      if (pathname.startsWith("/users") && !permissions.includes(PERMISSIONS.MANAGE_USERS)) {
-        return Response.redirect(new URL("/", request.nextUrl));
+      const routePermissions: [string, string][] = [
+        ["/accounts", PERMISSIONS.MANAGE_ACCOUNTS],
+        ["/users", PERMISSIONS.MANAGE_USERS],
+        ["/customers", PERMISSIONS.MANAGE_CUSTOMERS],
+        ["/vendors", PERMISSIONS.MANAGE_VENDORS],
+      ];
+
+      for (const [prefix, permission] of routePermissions) {
+        if (pathname.startsWith(prefix) && !permissions.includes(permission)) {
+          return Response.redirect(new URL("/", request.nextUrl));
+        }
       }
 
       return true;

@@ -85,3 +85,32 @@ export async function setAccountActive(formData: FormData) {
   });
   revalidatePath("/accounts");
 }
+
+export async function setAccountSystemRole(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_ACCOUNTS);
+  const id = String(formData.get("id") ?? "");
+  const systemRoleRaw = String(formData.get("systemRole") ?? "");
+  const systemRole = systemRoleRaw === "" ? null : systemRoleRaw;
+
+  const [before] = await sql`SELECT system_role FROM accounts WHERE id = ${id}`;
+  if (!before) redirect(`/accounts?error=${encodeURIComponent("Account not found.")}`);
+
+  try {
+    await sql`UPDATE accounts SET system_role = ${systemRole} WHERE id = ${id}`;
+  } catch (err: any) {
+    const message =
+      err?.code === "23505"
+        ? "Another account is already tagged with that role — untag it first."
+        : "Could not update the account role.";
+    redirect(`/accounts?error=${encodeURIComponent(message)}`);
+  }
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "update_system_role",
+    entityType: "account",
+    entityId: id,
+    details: { before: before.system_role, after: systemRole },
+  });
+  revalidatePath("/accounts");
+}

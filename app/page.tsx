@@ -15,6 +15,8 @@ export default async function Home() {
       </p>
       <nav style={{ display: "flex", gap: 16, margin: "16px 0" }}>
         {permissions.includes(PERMISSIONS.MANAGE_ACCOUNTS) && <a href="/accounts">Chart of Accounts</a>}
+        {permissions.includes(PERMISSIONS.MANAGE_CUSTOMERS) && <a href="/customers">Customers</a>}
+        {permissions.includes(PERMISSIONS.MANAGE_VENDORS) && <a href="/vendors">Vendors</a>}
         {permissions.includes(PERMISSIONS.MANAGE_USERS) && <a href="/users">Users</a>}
         <a href="/change-password">Change password</a>
       </nav>
