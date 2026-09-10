@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatCurrency } from "@/lib/currency";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string };
 
@@ -77,7 +78,7 @@ export default function InvoiceLineEditor() {
         + Add line
       </button>
       <p>
-        <strong>Total: ${total.toFixed(2)}</strong>
+        <strong>Total: {formatCurrency(total)}</strong>
       </p>
     </div>
   );

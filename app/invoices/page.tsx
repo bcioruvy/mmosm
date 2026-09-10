@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/currency";
 import { createInvoice } from "./actions";
 import InvoiceLineEditor from "./InvoiceLineEditor";
 
@@ -57,7 +58,7 @@ export default async function InvoicesPage({
               <td>{new Date(inv.invoice_date).toLocaleDateString()}</td>
               <td>{new Date(inv.due_date).toLocaleDateString()}</td>
               <td>{inv.status}</td>
-              <td>${Number(inv.total).toFixed(2)}</td>
+              <td>{formatCurrency(Number(inv.total))}</td>
             </tr>
           ))}
         </tbody>

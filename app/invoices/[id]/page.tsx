@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import sql from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/currency";
 import { sendInvoice, deleteInvoiceDraft } from "../actions";
 
 export default async function InvoiceDetailPage({
@@ -75,15 +76,15 @@ export default async function InvoiceDetailPage({
             <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
               <td>{l.description}</td>
               <td>{Number(l.quantity)}</td>
-              <td>${Number(l.unit_price).toFixed(2)}</td>
+              <td>{formatCurrency(Number(l.unit_price))}</td>
               <td>{Number(l.discount_percent)}%</td>
-              <td>${Number(l.line_total).toFixed(2)}</td>
+              <td>{formatCurrency(Number(l.line_total))}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p>
-        <strong>Total: ${total.toFixed(2)}</strong>
+        <strong>Total: {formatCurrency(total)}</strong>
       </p>
 
       {invoice.status === "draft" && (

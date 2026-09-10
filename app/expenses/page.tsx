@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
+import { formatCurrency } from "@/lib/currency";
 import { createExpense } from "./actions";
 
 export default async function ExpensesPage({
@@ -69,7 +70,7 @@ export default async function ExpensesPage({
                 {e.category_code} — {e.category_name}
               </td>
               <td>{e.vendor_name ?? "—"}</td>
-              <td>${Number(e.amount).toFixed(2)}</td>
+              <td>{formatCurrency(Number(e.amount))}</td>
               <td>
                 {e.payment_status === "paid" ? `Paid (${e.payment_code} ${e.payment_name})` : "Unpaid (bill)"}
               </td>

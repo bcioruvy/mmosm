@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
+import { formatCurrency } from "@/lib/currency";
 import { createIncome } from "./actions";
 
 export default async function IncomePage({
@@ -65,7 +66,7 @@ export default async function IncomePage({
                 {i.category_code} — {i.category_name}
               </td>
               <td>{i.source ?? ""}</td>
-              <td>${Number(i.amount).toFixed(2)}</td>
+              <td>{formatCurrency(Number(i.amount))}</td>
               <td>
                 {i.payment_code} — {i.payment_name}
               </td>
