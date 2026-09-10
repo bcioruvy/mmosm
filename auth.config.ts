@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { PERMISSIONS } from "@/lib/permissions";
 
 export const authConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
@@ -7,10 +8,12 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.id = (user as any).id;
-        token.name = user.name;
-        token.email = user.email;
-        token.role = (user as any).role;
+        const u = user as { id: string; name?: string | null; email?: string | null; role: string; permissions?: string[] };
+        token.id = u.id;
+        token.name = u.name;
+        token.email = u.email;
+        token.role = u.role;
+        token.permissions = u.permissions ?? [];
       }
       return token;
     },
@@ -18,10 +21,28 @@ export const authConfig: NextAuthConfig = {
       if (session.user) {
         session.user.name = token.name as string;
         session.user.email = token.email as string;
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.permissions = token.permissions ?? [];
       }
       return session;
+    },
+    // Edge-safe route protection: runs in middleware, no DB access — role
+    // and permissions ride in the JWT already, set at login.
+    authorized({ request, auth: session }) {
+      if (!session?.user) return false; // not logged in -> redirect to /login
+
+      const { pathname } = request.nextUrl;
+      const permissions = session.user.permissions ?? [];
+
+      if (pathname.startsWith("/accounts") && !permissions.includes(PERMISSIONS.MANAGE_ACCOUNTS)) {
+        return Response.redirect(new URL("/", request.nextUrl));
+      }
+      if (pathname.startsWith("/users") && !permissions.includes(PERMISSIONS.MANAGE_USERS)) {
+        return Response.redirect(new URL("/", request.nextUrl));
+      }
+
+      return true;
     },
   },
 };

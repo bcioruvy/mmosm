@@ -15,7 +15,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         const rows = await sql`
-          SELECT u.id, u.name, u.email, u.password_hash, u.is_active, r.name AS role
+          SELECT u.id, u.name, u.email, u.password_hash, u.is_active, r.name AS role, r.permissions AS permissions
           FROM users u
           JOIN roles r ON r.id = u.role_id
           WHERE u.email = ${email}
@@ -26,7 +26,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return null;
 
-        return { id: String(user.id), name: user.name, email: user.email, role: user.role };
+        return {
+          id: String(user.id),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          permissions: user.permissions ?? [],
+        };
       },
     }),
   ],
