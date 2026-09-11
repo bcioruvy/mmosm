@@ -105,3 +105,67 @@ label {
   color: var(--color-text-muted);
   font-size: 0.9em;
 }
+
+/* Login screen: centered card with a rotating conic-gradient glow ring.
+   @property lets the browser animate --login-angle smoothly; browsers
+   without support just render the gradient static, unanimated — a
+   fine fallback, not a broken one. */
+@property --login-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-glow-border {
+  position: relative;
+  padding: 2px;
+  border-radius: 18px;
+  background: conic-gradient(
+    from var(--login-angle),
+    transparent 0deg,
+    var(--color-brand) 60deg,
+    transparent 140deg,
+    transparent 220deg,
+    var(--color-brand) 300deg,
+    transparent 360deg
+  );
+  animation: login-rotate 5s linear infinite;
+  box-shadow: 0 0 60px -10px rgba(56, 4, 14, 0.35);
+}
+
+@keyframes login-rotate {
+  to {
+    --login-angle: 360deg;
+  }
+}
+
+.login-card {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 340px;
+  max-width: 100%;
+}
+
+.login-card h1 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.login-card input {
+  width: 100%;
+}
+
+.login-card button {
+  width: 100%;
+  margin-top: 4px;
+}
