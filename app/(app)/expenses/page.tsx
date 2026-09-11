@@ -4,9 +4,12 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
+import { Fragment } from "react";
 import { createExpense, voidExpense, updateExpenseNotes } from "./actions";
 import { recordExpensePayment } from "../payments/actions";
 import { Receipt, CreditCard, Ban, Plus } from "lucide-react";
+import InlineEditField from "../InlineEditField";
+import Disclosure from "../Disclosure";
 
 export default async function ExpensesPage({
   searchParams,
@@ -74,91 +77,94 @@ export default async function ExpensesPage({
               <th>Vendor</th>
               <th>Amount</th>
               <th>Status</th>
-              <th>Notes</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {expenses.map((e: any) => (
-              <tr key={e.id} className="border-b" style={{ opacity: e.voided_at ? 0.5 : 1 }}>
-                <td>{new Date(e.expense_date).toLocaleDateString()}</td>
-                <td>
-                  {e.category_code} — {e.category_name}
-                </td>
-                <td>{e.vendor_name ?? "—"}</td>
-                <td>{formatCurrency(Number(e.amount))}</td>
-                <td>
-                  {e.voided_at
-                    ? "Voided"
-                    : e.payment_status === "paid"
-                      ? e.payment_code
-                        ? `Paid (${e.payment_code} ${e.payment_name})`
-                        : "Paid"
-                      : e.payment_status === "partial"
-                        ? `Partial — ${formatCurrency(e.remaining)} owed`
-                        : "Unpaid (bill)"}
-                </td>
-                <td>
-                  {e.voided_at ? (
-                    e.notes ?? ""
-                  ) : (
-                    <form action={updateExpenseNotes} className="flex items-center gap-1.5">
-                      <input type="hidden" name="expenseId" value={e.id} />
-                      <input name="notes" defaultValue={e.notes ?? ""} placeholder="Notes" style={{ width: 140 }} />
-                      <button type="submit" className="text-xs">
-                        Save
-                      </button>
-                    </form>
-                  )}
-                </td>
-                <td>
-                  <div className="flex flex-col gap-1 py-2">
-                    {!e.voided_at &&
-                      (e.payment_status === "unpaid" || e.payment_status === "partial") &&
-                      cashAccounts.length > 0 && (
-                        <form action={recordExpensePayment} className="flex flex-wrap items-center gap-1.5">
-                          <input type="hidden" name="expenseId" value={e.id} />
-                          <input name="paymentDate" type="date" required style={{ width: 130 }} />
-                          <select name="accountId" required defaultValue="">
-                            <option value="" disabled>
-                              Pay from…
-                            </option>
-                            {cashAccounts.map((a: any) => (
-                              <option key={a.id} value={a.id}>
-                                {a.code} — {a.name}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            name="amount"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            max={e.remaining}
-                            defaultValue={e.remaining}
-                            placeholder="Amount"
-                            required
-                            style={{ width: 90 }}
-                          />
-                          <button type="submit" className="inline-flex items-center gap-1.5">
-                            <CreditCard className="h-3.5 w-3.5" />
-                            Pay
-                          </button>
-                        </form>
-                      )}
-                    {!e.voided_at && canVoid && (
-                      <form action={voidExpense} className="flex flex-wrap items-center gap-1.5">
-                        <input type="hidden" name="expenseId" value={e.id} />
-                        <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
-                        <button type="submit" className="inline-flex items-center gap-1.5">
-                          <Ban className="h-3.5 w-3.5" />
-                          Void
-                        </button>
-                      </form>
+              <Fragment key={e.id}>
+                <tr className="border-b" style={{ opacity: e.voided_at ? 0.5 : 1 }}>
+                  <td className="pt-3">{new Date(e.expense_date).toLocaleDateString()}</td>
+                  <td className="pt-3">
+                    {e.category_code} — {e.category_name}
+                  </td>
+                  <td className="pt-3">{e.vendor_name ?? "—"}</td>
+                  <td className="pt-3">{formatCurrency(Number(e.amount))}</td>
+                  <td className="pt-3">
+                    {e.voided_at
+                      ? "Voided"
+                      : e.payment_status === "paid"
+                        ? e.payment_code
+                          ? `Paid (${e.payment_code} ${e.payment_name})`
+                          : "Paid"
+                        : e.payment_status === "partial"
+                          ? `Partial — ${formatCurrency(e.remaining)} owed`
+                          : "Unpaid (bill)"}
+                  </td>
+                </tr>
+                <tr className="border-b" style={{ opacity: e.voided_at ? 0.5 : 1 }}>
+                  <td colSpan={5} className="pb-3 pt-1">
+                    {e.voided_at ? (
+                      <span className="text-sm text-muted">{e.notes ?? ""}</span>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <InlineEditField
+                          action={updateExpenseNotes}
+                          hiddenFields={{ expenseId: e.id }}
+                          fieldName="notes"
+                          value={e.notes ?? null}
+                          placeholder="Notes"
+                        />
+                        <div className="flex flex-wrap items-center gap-3">
+                          {(e.payment_status === "unpaid" || e.payment_status === "partial") &&
+                            cashAccounts.length > 0 && (
+                              <Disclosure label="Pay" icon={<CreditCard className="h-3.5 w-3.5" />}>
+                                <form action={recordExpensePayment} className="flex flex-wrap items-center gap-1.5">
+                                  <input type="hidden" name="expenseId" value={e.id} />
+                                  <input name="paymentDate" type="date" required style={{ width: 130 }} />
+                                  <select name="accountId" required defaultValue="">
+                                    <option value="" disabled>
+                                      Pay from…
+                                    </option>
+                                    {cashAccounts.map((a: any) => (
+                                      <option key={a.id} value={a.id}>
+                                        {a.code} — {a.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    name="amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    max={e.remaining}
+                                    defaultValue={e.remaining}
+                                    placeholder="Amount"
+                                    required
+                                    style={{ width: 90 }}
+                                  />
+                                  <button type="submit" className="text-xs">
+                                    Confirm
+                                  </button>
+                                </form>
+                              </Disclosure>
+                            )}
+                          {canVoid && (
+                            <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
+                              <form action={voidExpense} className="flex flex-wrap items-center gap-1.5">
+                                <input type="hidden" name="expenseId" value={e.id} />
+                                <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                                <button type="submit" className="text-xs">
+                                  Confirm
+                                </button>
+                              </form>
+                            </Disclosure>
+                          )}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

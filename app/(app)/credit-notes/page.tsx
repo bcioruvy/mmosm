@@ -3,8 +3,11 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
+import { Fragment } from "react";
 import { voidCreditNote, updateCreditNoteReason } from "./actions";
 import { Undo2, Ban } from "lucide-react";
+import InlineEditField from "../InlineEditField";
+import Disclosure from "../Disclosure";
 
 export default async function CreditNotesPage({
   searchParams,
@@ -51,53 +54,56 @@ export default async function CreditNotesPage({
               <th>Customer</th>
               <th>Amount</th>
               <th>Type</th>
-              <th>Reason</th>
               <th>Status</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {creditNotes.map((cn: any) => (
-              <tr key={cn.id} className="border-b" style={{ opacity: cn.voided_at ? 0.5 : 1 }}>
-                <td>{cn.credit_note_number}</td>
-                <td>{new Date(cn.credit_date).toLocaleDateString()}</td>
-                <td>
-                  <a href={`/invoices/${cn.invoice_id}`}>{cn.invoice_number}</a>
-                </td>
-                <td>{cn.customer_name}</td>
-                <td>{formatCurrency(Number(cn.amount))}</td>
-                <td>
-                  {cn.refund_account_code
-                    ? `Cash refund (${cn.refund_account_code} — ${cn.refund_account_name})`
-                    : "Applied to balance owed"}
-                </td>
-                <td>
-                  {cn.voided_at ? (
-                    cn.reason ?? ""
-                  ) : (
-                    <form action={updateCreditNoteReason} className="flex items-center gap-1.5">
-                      <input type="hidden" name="creditNoteId" value={cn.id} />
-                      <input name="reason" defaultValue={cn.reason ?? ""} placeholder="Reason" style={{ width: 140 }} />
-                      <button type="submit" className="text-xs">
-                        Save
-                      </button>
-                    </form>
-                  )}
-                </td>
-                <td>{cn.voided_at ? "Voided" : "Active"}</td>
-                <td>
-                  {!cn.voided_at && canVoid && (
-                    <form action={voidCreditNote} className="flex flex-wrap items-center gap-1.5 py-2">
-                      <input type="hidden" name="creditNoteId" value={cn.id} />
-                      <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
-                      <button type="submit" className="inline-flex items-center gap-1.5">
-                        <Ban className="h-3.5 w-3.5" />
-                        Void
-                      </button>
-                    </form>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={cn.id}>
+                <tr className="border-b" style={{ opacity: cn.voided_at ? 0.5 : 1 }}>
+                  <td className="pt-3">{cn.credit_note_number}</td>
+                  <td className="pt-3">{new Date(cn.credit_date).toLocaleDateString()}</td>
+                  <td className="pt-3">
+                    <a href={`/invoices/${cn.invoice_id}`}>{cn.invoice_number}</a>
+                  </td>
+                  <td className="pt-3">{cn.customer_name}</td>
+                  <td className="pt-3">{formatCurrency(Number(cn.amount))}</td>
+                  <td className="pt-3">
+                    {cn.refund_account_code
+                      ? `Cash refund (${cn.refund_account_code} — ${cn.refund_account_name})`
+                      : "Applied to balance owed"}
+                  </td>
+                  <td className="pt-3">{cn.voided_at ? "Voided" : "Active"}</td>
+                </tr>
+                <tr className="border-b" style={{ opacity: cn.voided_at ? 0.5 : 1 }}>
+                  <td colSpan={7} className="pb-3 pt-1">
+                    {cn.voided_at ? (
+                      <span className="text-sm text-muted">{cn.reason ?? ""}</span>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <InlineEditField
+                          action={updateCreditNoteReason}
+                          hiddenFields={{ creditNoteId: cn.id }}
+                          fieldName="reason"
+                          value={cn.reason ?? null}
+                          placeholder="Reason"
+                        />
+                        {canVoid && (
+                          <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
+                            <form action={voidCreditNote} className="flex flex-wrap items-center gap-1.5">
+                              <input type="hidden" name="creditNoteId" value={cn.id} />
+                              <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                              <button type="submit" className="text-xs">
+                                Confirm
+                              </button>
+                            </form>
+                          </Disclosure>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

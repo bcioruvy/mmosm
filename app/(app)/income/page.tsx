@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
+import { Fragment } from "react";
 import { createIncome, voidIncome, updateIncomeNotes } from "./actions";
 import { TrendingUp, Ban, Plus } from "lucide-react";
+import InlineEditField from "../InlineEditField";
+import Disclosure from "../Disclosure";
 
 export default async function IncomePage({
   searchParams,
@@ -58,46 +61,49 @@ export default async function IncomePage({
               <th>Source</th>
               <th>Amount</th>
               <th>Received into</th>
-              <th>Notes</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {income.map((i: any) => (
-              <tr key={i.id} className="border-b" style={{ opacity: i.voided_at ? 0.5 : 1 }}>
-                <td>{new Date(i.income_date).toLocaleDateString()}</td>
-                <td>
-                  {i.category_code} — {i.category_name}
-                </td>
-                <td>{i.source ?? ""}</td>
-                <td>{formatCurrency(Number(i.amount))}</td>
-                <td>{i.voided_at ? "Voided" : `${i.payment_code} — ${i.payment_name}`}</td>
-                <td>
-                  {i.voided_at ? (
-                    i.notes ?? ""
-                  ) : (
-                    <form action={updateIncomeNotes} className="flex items-center gap-1.5">
-                      <input type="hidden" name="incomeId" value={i.id} />
-                      <input name="notes" defaultValue={i.notes ?? ""} placeholder="Notes" style={{ width: 140 }} />
-                      <button type="submit" className="text-xs">
-                        Save
-                      </button>
-                    </form>
-                  )}
-                </td>
-                <td>
-                  {!i.voided_at && canVoid && (
-                    <form action={voidIncome} className="flex flex-wrap items-center gap-1.5 py-2">
-                      <input type="hidden" name="incomeId" value={i.id} />
-                      <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
-                      <button type="submit" className="inline-flex items-center gap-1.5">
-                        <Ban className="h-3.5 w-3.5" />
-                        Void
-                      </button>
-                    </form>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={i.id}>
+                <tr className="border-b" style={{ opacity: i.voided_at ? 0.5 : 1 }}>
+                  <td className="pt-3">{new Date(i.income_date).toLocaleDateString()}</td>
+                  <td className="pt-3">
+                    {i.category_code} — {i.category_name}
+                  </td>
+                  <td className="pt-3">{i.source ?? ""}</td>
+                  <td className="pt-3">{formatCurrency(Number(i.amount))}</td>
+                  <td className="pt-3">{i.voided_at ? "Voided" : `${i.payment_code} — ${i.payment_name}`}</td>
+                </tr>
+                <tr className="border-b" style={{ opacity: i.voided_at ? 0.5 : 1 }}>
+                  <td colSpan={5} className="pb-3 pt-1">
+                    {i.voided_at ? (
+                      <span className="text-sm text-muted">{i.notes ?? ""}</span>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <InlineEditField
+                          action={updateIncomeNotes}
+                          hiddenFields={{ incomeId: i.id }}
+                          fieldName="notes"
+                          value={i.notes ?? null}
+                          placeholder="Notes"
+                        />
+                        {canVoid && (
+                          <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
+                            <form action={voidIncome} className="flex flex-wrap items-center gap-1.5">
+                              <input type="hidden" name="incomeId" value={i.id} />
+                              <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                              <button type="submit" className="text-xs">
+                                Confirm
+                              </button>
+                            </form>
+                          </Disclosure>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

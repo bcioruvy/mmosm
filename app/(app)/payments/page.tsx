@@ -3,8 +3,11 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
+import { Fragment } from "react";
 import { voidPayment, updatePaymentNotes } from "./actions";
 import { CreditCard, Ban } from "lucide-react";
+import InlineEditField from "../InlineEditField";
+import Disclosure from "../Disclosure";
 
 export default async function PaymentsPage({
   searchParams,
@@ -57,51 +60,54 @@ export default async function PaymentsPage({
               <th>Account</th>
               <th>Amount</th>
               <th>Status</th>
-              <th>Notes</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {payments.map((p: any) => (
-              <tr key={p.id} className="border-b" style={{ opacity: p.voided_at ? 0.5 : 1 }}>
-                <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                <td>{p.direction === "in" ? "In" : "Out"}</td>
-                <td>
-                  {p.applied_to_type === "invoice"
-                    ? `Invoice ${p.invoice_number} — ${p.customer_name}`
-                    : `Expense — ${p.expense_category_name}`}
-                </td>
-                <td>
-                  {p.account_code} — {p.account_name}
-                </td>
-                <td>{formatCurrency(Number(p.amount))}</td>
-                <td>{p.voided_at ? "Voided" : "Active"}</td>
-                <td>
-                  {p.voided_at ? (
-                    p.notes ?? ""
-                  ) : (
-                    <form action={updatePaymentNotes} className="flex items-center gap-1.5">
-                      <input type="hidden" name="paymentId" value={p.id} />
-                      <input name="notes" defaultValue={p.notes ?? ""} placeholder="Notes" style={{ width: 140 }} />
-                      <button type="submit" className="text-xs">
-                        Save
-                      </button>
-                    </form>
-                  )}
-                </td>
-                <td>
-                  {!p.voided_at && canVoid && (
-                    <form action={voidPayment} className="flex flex-wrap items-center gap-1.5 py-2">
-                      <input type="hidden" name="paymentId" value={p.id} />
-                      <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
-                      <button type="submit" className="inline-flex items-center gap-1.5">
-                        <Ban className="h-3.5 w-3.5" />
-                        Void
-                      </button>
-                    </form>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={p.id}>
+                <tr className="border-b" style={{ opacity: p.voided_at ? 0.5 : 1 }}>
+                  <td className="pt-3">{new Date(p.payment_date).toLocaleDateString()}</td>
+                  <td className="pt-3">{p.direction === "in" ? "In" : "Out"}</td>
+                  <td className="pt-3">
+                    {p.applied_to_type === "invoice"
+                      ? `Invoice ${p.invoice_number} — ${p.customer_name}`
+                      : `Expense — ${p.expense_category_name}`}
+                  </td>
+                  <td className="pt-3">
+                    {p.account_code} — {p.account_name}
+                  </td>
+                  <td className="pt-3">{formatCurrency(Number(p.amount))}</td>
+                  <td className="pt-3">{p.voided_at ? "Voided" : "Active"}</td>
+                </tr>
+                <tr className="border-b" style={{ opacity: p.voided_at ? 0.5 : 1 }}>
+                  <td colSpan={6} className="pb-3 pt-1">
+                    {p.voided_at ? (
+                      <span className="text-sm text-muted">{p.notes ?? ""}</span>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <InlineEditField
+                          action={updatePaymentNotes}
+                          hiddenFields={{ paymentId: p.id }}
+                          fieldName="notes"
+                          value={p.notes ?? null}
+                          placeholder="Notes"
+                        />
+                        {canVoid && (
+                          <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
+                            <form action={voidPayment} className="flex flex-wrap items-center gap-1.5">
+                              <input type="hidden" name="paymentId" value={p.id} />
+                              <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                              <button type="submit" className="text-xs">
+                                Confirm
+                              </button>
+                            </form>
+                          </Disclosure>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>
