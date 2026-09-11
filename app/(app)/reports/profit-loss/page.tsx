@@ -5,7 +5,9 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
 import { journalLinesInRange } from "@/lib/reports/journalFilters";
 import { computeNetIncome } from "@/lib/reports/netIncome";
+import { findCrossPeriodAdjustments } from "@/lib/reports/crossPeriodAdjustments";
 import { todayISO, startOfYearISO } from "@/lib/reports/dates";
+import CrossPeriodAdjustmentsNote from "../CrossPeriodAdjustmentsNote";
 
 export default async function ProfitLossPage({
   searchParams,
@@ -43,6 +45,7 @@ export default async function ProfitLossPage({
     .map((r: any) => ({ ...r, amount: Number(r.total_debit) - Number(r.total_credit) }));
 
   const { grossSales, returns, netRevenue, cogs, grossProfit, expenses, netIncome } = computeNetIncome(rows as any);
+  const crossPeriodAdjustments = await findCrossPeriodAdjustments(start, end);
 
   return (
     <main style={{ maxWidth: 700, margin: "40px auto", padding: 24 }}>
@@ -59,6 +62,8 @@ export default async function ProfitLossPage({
         </label>
         <button type="submit">Update</button>
       </form>
+
+      <CrossPeriodAdjustmentsNote adjustments={crossPeriodAdjustments} />
 
       <h2>Revenue</h2>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>

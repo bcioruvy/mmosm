@@ -2,11 +2,13 @@ import sql from "@/lib/db";
 import { formatCurrency } from "@/lib/currency";
 import { journalLinesInRange, journalLinesThroughDate } from "@/lib/reports/journalFilters";
 import { computeNetIncome } from "@/lib/reports/netIncome";
+import { findCrossPeriodAdjustments, hasCrossPeriodAdjustments } from "@/lib/reports/crossPeriodAdjustments";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { todayISO } from "@/lib/reports/dates";
 import { resolvePeriod, PERIOD_PRESETS } from "@/lib/reports/periods";
 import { trailingMonths } from "@/lib/reports/months";
 import TrendChart from "./TrendChart";
+import CrossPeriodAdjustmentsNote from "./reports/CrossPeriodAdjustmentsNote";
 
 const WIDGET_LIMIT = 8;
 
@@ -48,6 +50,7 @@ export default async function DashboardPage({
     GROUP BY a.id, a.code, a.name, a.type
   `;
   const { netRevenue, cogs, grossProfit, expenses: opEx, netIncome } = computeNetIncome(periodRows as any);
+  const crossPeriodAdjustments = await findCrossPeriodAdjustments(start, end);
 
   const [{ cash_balance }] = await sql`
     SELECT COALESCE(SUM(f.debit), 0) - COALESCE(SUM(f.credit), 0) AS cash_balance
@@ -91,7 +94,8 @@ export default async function DashboardPage({
         WHERE a.type IN ('revenue', 'cogs', 'expense')
         GROUP BY a.id, a.code, a.name, a.type
       `;
-      return { label: m.label, value: computeNetIncome(rows as any).netIncome };
+      const flagged = await hasCrossPeriodAdjustments(m.start, m.end);
+      return { label: m.label, value: computeNetIncome(rows as any).netIncome, flagged };
     })
   );
 
@@ -139,6 +143,8 @@ export default async function DashboardPage({
         Period figures below cover {start} to {end}. Cash, AR, and AP are as of today — balances, not
         period flows.
       </p>
+
+      <CrossPeriodAdjustmentsNote adjustments={crossPeriodAdjustments} />
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         <Tile label="Revenue" value={formatCurrency(netRevenue)} />

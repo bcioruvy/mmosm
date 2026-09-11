@@ -115,3 +115,28 @@ baseline instead of against memory.
   Voiding an invoice or an on-credit expense that was later paid off
   is blocked until its payments/credit notes are voided first — see
   `lib/voidTransaction.ts` and each entity's `void*` action for why.
+
+No new migration for this one, but worth documenting: **range-based
+reports have no opening balance, so a void whose original transaction
+falls outside the range can make an account's period subtotal look
+one-sided.** A void posts its reversal dated the day the void happened,
+never the original transaction's date (see `voided_at`/`voided_by`
+note above and `lib/voidTransaction.ts`). Trial Balance, Balance Sheet,
+and General Ledger are immune to this: the first two are "as of" with
+no lower date bound, so a void pair always resolves once `asOf` is on
+or after the void date, and General Ledger carries an explicit opening
+balance into the period, so a pre-range original is already folded in.
+Profit & Loss — and the Dashboard's period tiles and 6-month trend,
+which reuse the same `journalLinesInRange` + `computeNetIncome`
+pattern — have neither, because a P&L-type account isn't supposed to
+carry a balance between periods by definition. So if a transaction is
+voided and its original date falls outside the report's range (before
+start *or* after end — e.g. a future-dated test entry voided today),
+that range will show only the reversal's side: a lone debit or credit
+with no offsetting line, which can read as a sign bug even though the
+subtotal is arithmetically correct for what actually happened inside
+that range. `lib/reports/crossPeriodAdjustments.ts` detects this (void
+reversal inside the range, its original's `entry_date NOT BETWEEN`
+start and end) and `app/(app)/reports/CrossPeriodAdjustmentsNote.tsx`
+surfaces it on Profit & Loss and the Dashboard instead of leaving the
+one-sided figure unexplained.

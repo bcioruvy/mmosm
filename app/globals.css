@@ -9,6 +9,8 @@
   --color-border: #e5dbd6;
   --color-success: #1b7a3d;
   --color-error: #b00020;
+  --color-warning: #8a5a00;
+  --color-warning-bg: #fff3d6;
 }
 
 * {
