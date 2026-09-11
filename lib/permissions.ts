@@ -3,6 +3,7 @@ export const PERMISSIONS = {
   MANAGE_USERS: "manage_users",
   MANAGE_CUSTOMERS: "manage_customers",
   MANAGE_VENDORS: "manage_vendors",
+  MANAGE_PRODUCTS: "manage_products",
   MANAGE_TRANSACTIONS: "manage_transactions",
   VIEW_REPORTS: "view_reports",
   VIEW_AUDIT_LOG: "view_audit_log",

@@ -29,6 +29,17 @@ export default async function InvoicesPage({
     sql`SELECT id, code, name FROM accounts WHERE is_active = true AND type = 'revenue' AND code != '4900' ORDER BY code`,
   ]);
 
+  // Own try/catch, deliberately outside the Promise.all above: this
+  // deploys before 013_products.sql is necessarily run, and a missing
+  // products table here must not 500 a page that already works today —
+  // the picker is a convenience, invoice creation doesn't depend on it.
+  let products: any[] = [];
+  try {
+    products = await sql`SELECT id, sku, name, default_price FROM products WHERE is_active = true ORDER BY name`;
+  } catch {
+    products = [];
+  }
+
   return (
     <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -102,7 +113,7 @@ export default async function InvoicesPage({
             </select>
           </div>
 
-          <InvoiceLineEditor />
+          <InvoiceLineEditor products={products} />
 
           <input name="notes" placeholder="Notes" />
           <button type="submit" className="self-start">

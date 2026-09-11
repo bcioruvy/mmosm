@@ -9,6 +9,7 @@ const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
   { href: "/accounts", label: "Chart of Accounts", permission: PERMISSIONS.MANAGE_ACCOUNTS },
   { href: "/customers", label: "Customers", permission: PERMISSIONS.MANAGE_CUSTOMERS },
   { href: "/vendors", label: "Vendors", permission: PERMISSIONS.MANAGE_VENDORS },
+  { href: "/products", label: "Products", permission: PERMISSIONS.MANAGE_PRODUCTS },
   { href: "/expenses", label: "Expenses", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   { href: "/income", label: "Income", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   { href: "/invoices", label: "Invoices", permission: PERMISSIONS.MANAGE_TRANSACTIONS },

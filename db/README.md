@@ -143,6 +143,21 @@ baseline instead of against memory.
   touch accounts, users, roles, or business_settings — see the file's
   own header for the full FK-order reasoning. Not meant to be run
   again; harmless but pointless if it is.
+- `013_products.sql` — Stage 5: `products` catalog scaffolding only —
+  sku (nullable, unique)/name/description/default_price/is_active. No
+  quantity_on_hand or any stock column, no inventory valuation, no
+  automatic COGS postings — deliberately out of scope, a separate
+  feature from this scaffolding. `default_price` is a convenience
+  prefill for the invoice line editor only, never a source of truth.
+  New `manage_products` permission, granted to all three roles (master
+  data, not a sensitive financial action). Invoice line items still
+  don't reference products by FK — `invoice_lines` stays free-text/
+  numbers exactly as before; the line editor's product picker only
+  prefills a line's description/price client-side.
+  `app/(app)/invoices/page.tsx` wraps its products query in its own
+  try/catch, outside the page's main `Promise.all`, so a not-yet-
+  migrated `products` table can't 500 the Invoices page this ships
+  alongside — the picker just doesn't appear until the migration runs.
 
 No new migration for this one, but worth documenting: **range-based
 reports have no opening balance, so a void whose original transaction

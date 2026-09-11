@@ -4,14 +4,31 @@ import { useState } from "react";
 import { formatCurrency } from "@/lib/currency";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string };
+type Product = { id: number; sku: string | null; name: string; default_price: string | number | null };
 
 const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", discountPercent: "0" };
 
-export default function InvoiceLineEditor() {
+export default function InvoiceLineEditor({ products = [] }: { products?: Product[] }) {
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
 
   function updateLine(i: number, field: keyof Line, value: string) {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+  }
+
+  function applyProduct(i: number, productId: string) {
+    const product = products.find((p) => String(p.id) === productId);
+    if (!product) return;
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i
+          ? {
+              ...l,
+              description: product.name,
+              unitPrice: product.default_price !== null ? String(product.default_price) : l.unitPrice,
+            }
+          : l
+      )
+    );
   }
 
   function addLine() {
@@ -33,7 +50,24 @@ export default function InvoiceLineEditor() {
     <div>
       <input type="hidden" name="linesJson" value={JSON.stringify(lines)} />
       {lines.map((line, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+        <div key={i} className="mb-2 flex flex-wrap items-center gap-2">
+          {products.length > 0 && (
+            <select
+              defaultValue=""
+              onChange={(e) => applyProduct(i, e.target.value)}
+              title="Fill description and price from a product (optional)"
+              style={{ width: 160 }}
+            >
+              <option value="" disabled>
+                From product…
+              </option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.sku ? `${p.sku} — ${p.name}` : p.name}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             placeholder="Description"
             value={line.description}

@@ -40,6 +40,7 @@ export const authConfig: NextAuthConfig = {
         ["/users", PERMISSIONS.MANAGE_USERS],
         ["/customers", PERMISSIONS.MANAGE_CUSTOMERS],
         ["/vendors", PERMISSIONS.MANAGE_VENDORS],
+        ["/products", PERMISSIONS.MANAGE_PRODUCTS],
         ["/expenses", PERMISSIONS.MANAGE_TRANSACTIONS],
         ["/income", PERMISSIONS.MANAGE_TRANSACTIONS],
         ["/invoices", PERMISSIONS.MANAGE_TRANSACTIONS],
