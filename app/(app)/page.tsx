@@ -71,16 +71,25 @@ export default async function DashboardPage({
   );
   const arTotal = openInvoices.reduce((s: number, inv: any) => s + inv.remaining, 0);
 
-  const unpaidExpenses = await sql`
+  const unpaidExpensesRaw = await sql`
     SELECT e.id, e.amount, e.due_date, e.expense_date, cat.name AS category_name,
-      COALESCE(v.name, 'No vendor') AS vendor_name
+      COALESCE(v.name, 'No vendor') AS vendor_name, COALESCE(p.paid, 0) AS paid
     FROM expenses e
     JOIN accounts cat ON cat.id = e.category_account_id
     LEFT JOIN vendors v ON v.id = e.vendor_id
-    WHERE e.payment_status = 'unpaid' AND e.voided_at IS NULL
+    LEFT JOIN (
+      SELECT applied_to_id, SUM(amount) AS paid FROM payments
+      WHERE applied_to_type = 'expense' AND voided_at IS NULL
+      GROUP BY applied_to_id
+    ) p ON p.applied_to_id = e.id
+    WHERE e.payment_status IN ('unpaid', 'partial') AND e.voided_at IS NULL
     ORDER BY COALESCE(e.due_date, e.expense_date)
   `;
-  const apTotal = unpaidExpenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
+  const unpaidExpenses = unpaidExpensesRaw.map((e: any) => ({
+    ...e,
+    remaining: Math.round((Number(e.amount) - Number(e.paid)) * 100) / 100,
+  }));
+  const apTotal = unpaidExpenses.reduce((s: number, e: any) => s + e.remaining, 0);
 
   const months = trailingMonths(6);
   const trend = await Promise.all(
@@ -237,7 +246,7 @@ export default async function DashboardPage({
                   <td>{e.vendor_name}</td>
                   <td>{e.category_name}</td>
                   <td>{new Date(e.due_date ?? e.expense_date).toLocaleDateString()}</td>
-                  <td className="text-right">{formatCurrency(Number(e.amount))}</td>
+                  <td className="text-right">{formatCurrency(e.remaining)}</td>
                 </tr>
               ))}
               {unpaidExpenses.length === 0 && (

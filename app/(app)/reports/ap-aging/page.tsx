@@ -23,18 +23,24 @@ export default async function APAgingPage({
 
   const unpaidExpenses = await sql`
     SELECT e.id, e.amount, e.due_date, e.expense_date, cat.code AS category_code, cat.name AS category_name,
-      COALESCE(v.name, 'No vendor') AS vendor_name
+      COALESCE(v.name, 'No vendor') AS vendor_name, COALESCE(p.paid, 0) AS paid
     FROM expenses e
     JOIN accounts cat ON cat.id = e.category_account_id
     LEFT JOIN vendors v ON v.id = e.vendor_id
-    WHERE e.payment_status = 'unpaid' AND e.voided_at IS NULL
+    LEFT JOIN (
+      SELECT applied_to_id, SUM(amount) AS paid FROM payments
+      WHERE applied_to_type = 'expense' AND voided_at IS NULL
+      GROUP BY applied_to_id
+    ) p ON p.applied_to_id = e.id
+    WHERE e.payment_status IN ('unpaid', 'partial') AND e.voided_at IS NULL
     ORDER BY COALESCE(v.name, ''), e.due_date
   `;
 
   const expenses = unpaidExpenses.map((e: any) => {
     const referenceDate = e.due_date ? toISODate(e.due_date) : toISODate(e.expense_date);
     const daysOverdue = daysBetween(referenceDate, asOf);
-    return { ...e, remaining: Number(e.amount), bucket: agingBucket(daysOverdue), referenceDate };
+    const remaining = Math.round((Number(e.amount) - Number(e.paid)) * 100) / 100;
+    return { ...e, remaining, bucket: agingBucket(daysOverdue), referenceDate };
   });
 
   const byVendor = groupBy(expenses, (e: any) => e.vendor_name as string);

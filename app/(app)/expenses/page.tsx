@@ -5,7 +5,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
 import { createExpense, voidExpense } from "./actions";
-import { payExpense } from "../payments/actions";
+import { recordExpensePayment } from "../payments/actions";
 import { Receipt, CreditCard, Ban, Plus } from "lucide-react";
 
 export default async function ExpensesPage({
@@ -20,22 +20,33 @@ export default async function ExpensesPage({
   }
   const canVoid = permissions.includes(PERMISSIONS.VOID_TRANSACTIONS);
 
-  const [expenses, categoryAccounts, vendors, cashAccounts] = await Promise.all([
+  const [expensesRaw, categoryAccounts, vendors, cashAccounts] = await Promise.all([
     sql`
       SELECT e.id, e.expense_date, e.amount, e.payment_status, e.notes, e.voided_at,
         cat.code AS category_code, cat.name AS category_name,
         v.name AS vendor_name,
-        pay.code AS payment_code, pay.name AS payment_name
+        pay.code AS payment_code, pay.name AS payment_name,
+        COALESCE(p.paid, 0) AS paid
       FROM expenses e
       JOIN accounts cat ON cat.id = e.category_account_id
       LEFT JOIN vendors v ON v.id = e.vendor_id
       LEFT JOIN accounts pay ON pay.id = e.payment_account_id
+      LEFT JOIN (
+        SELECT applied_to_id, SUM(amount) AS paid FROM payments
+        WHERE applied_to_type = 'expense' AND voided_at IS NULL
+        GROUP BY applied_to_id
+      ) p ON p.applied_to_id = e.id
       ORDER BY e.expense_date DESC, e.id DESC
     `,
     sql`SELECT id, code, name FROM accounts WHERE is_active = true AND type IN ('expense', 'cogs') ORDER BY code`,
     sql`SELECT id, name FROM vendors WHERE is_active = true ORDER BY name`,
     getCashOrBankAccounts(),
   ]);
+
+  const expenses = expensesRaw.map((e: any) => ({
+    ...e,
+    remaining: Math.round((Number(e.amount) - Number(e.paid)) * 100) / 100,
+  }));
 
   return (
     <main className="max-w-screen-2xl px-6 py-10">
@@ -80,32 +91,49 @@ export default async function ExpensesPage({
                   {e.voided_at
                     ? "Voided"
                     : e.payment_status === "paid"
-                      ? `Paid (${e.payment_code} ${e.payment_name})`
-                      : "Unpaid (bill)"}
+                      ? e.payment_code
+                        ? `Paid (${e.payment_code} ${e.payment_name})`
+                        : "Paid"
+                      : e.payment_status === "partial"
+                        ? `Partial — ${formatCurrency(e.remaining)} owed`
+                        : "Unpaid (bill)"}
                 </td>
                 <td>{e.notes ?? ""}</td>
                 <td>
                   <div className="flex flex-col gap-1 py-2">
-                    {!e.voided_at && e.payment_status === "unpaid" && cashAccounts.length > 0 && (
-                      <form action={payExpense} className="flex flex-wrap items-center gap-1.5">
-                        <input type="hidden" name="expenseId" value={e.id} />
-                        <input name="paymentDate" type="date" required style={{ width: 130 }} />
-                        <select name="accountId" required defaultValue="">
-                          <option value="" disabled>
-                            Pay from…
-                          </option>
-                          {cashAccounts.map((a: any) => (
-                            <option key={a.id} value={a.id}>
-                              {a.code} — {a.name}
+                    {!e.voided_at &&
+                      (e.payment_status === "unpaid" || e.payment_status === "partial") &&
+                      cashAccounts.length > 0 && (
+                        <form action={recordExpensePayment} className="flex flex-wrap items-center gap-1.5">
+                          <input type="hidden" name="expenseId" value={e.id} />
+                          <input name="paymentDate" type="date" required style={{ width: 130 }} />
+                          <select name="accountId" required defaultValue="">
+                            <option value="" disabled>
+                              Pay from…
                             </option>
-                          ))}
-                        </select>
-                        <button type="submit" className="inline-flex items-center gap-1.5">
-                          <CreditCard className="h-3.5 w-3.5" />
-                          Pay
-                        </button>
-                      </form>
-                    )}
+                            {cashAccounts.map((a: any) => (
+                              <option key={a.id} value={a.id}>
+                                {a.code} — {a.name}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            name="amount"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            max={e.remaining}
+                            defaultValue={e.remaining}
+                            placeholder="Amount"
+                            required
+                            style={{ width: 90 }}
+                          />
+                          <button type="submit" className="inline-flex items-center gap-1.5">
+                            <CreditCard className="h-3.5 w-3.5" />
+                            Pay
+                          </button>
+                        </form>
+                      )}
                     {!e.voided_at && canVoid && (
                       <form action={voidExpense} className="flex flex-wrap items-center gap-1.5">
                         <input type="hidden" name="expenseId" value={e.id} />

@@ -178,6 +178,41 @@ baseline instead of against memory.
   directly with no `source_type` filter, so a manual entry's effect on
   account balances shows up everywhere immediately.
 
+- `015_expense_partial_payments.sql` — closes the gap `007_payments.sql`'s
+  own header predicted: on-credit expenses (bills) can now be paid off
+  across multiple partial payments, the same way invoices already work.
+  `expenses.payment_status` gains a `'partial'` state alongside
+  paid/unpaid; how much is still owed is computed live from the
+  `payments` table by the new `lib/expenseBalance.ts` (mirrors
+  `lib/invoiceBalance.ts`), never stored as a running total. Two existing
+  constraints needed care, not just a new one: the unnamed inline
+  `CHECK (payment_status IN ('paid','unpaid'))` (found via `pg_constraint`
+  introspection rather than guessing its auto-generated name — the exact
+  kind of guess `004_expenses.sql`'s own history warns against) is
+  replaced by a named `expenses_payment_status_check` allowing
+  `'partial'` too; `expenses_payment_account_matches_status` is dropped
+  outright, because it enforced a strict 1:1 between `payment_status` and
+  `payment_account_id` that partial payments break (a bill can now be
+  paid off across two payments from two different accounts, which one FK
+  column can't represent). `payment_account_id` itself is **not**
+  dropped — it stays exactly as before for the immediate-pay-at-creation
+  path (an expense paid in full the moment it's entered, which never
+  posts to Accounts Payable and never gets a `payments` row, so that
+  column remains the only record of which account was used); the
+  bill-payment flow (`recordExpensePayment`, `voidPayment`'s expense
+  branch — `payExpense` renamed) now reads and writes exclusively through
+  `payments` and stops touching this column altogether. `voidExpense`'s
+  existing guard (block voiding while an active payment exists) needed
+  no change — it was already amount-agnostic. AP Aging and the
+  Dashboard's Upcoming Bills widget now include `'partial'` expenses and
+  show the remaining balance (amount minus payments), not the original
+  amount. The Expenses list page's status cell now distinguishes
+  paid-at-creation ("Paid (account)"), a fully-paid-off bill ("Paid"),
+  a partially-paid bill ("Partial — Rs X owed"), and an untouched bill
+  ("Unpaid (bill)"), and its Pay form gained an `amount` field capped at
+  the remaining balance, mirroring the invoice detail page's payment
+  form.
+
 No new migration for this one, but worth documenting: **range-based
 reports have no opening balance, so a void whose original transaction
 falls outside the range can make an account's period subtotal look

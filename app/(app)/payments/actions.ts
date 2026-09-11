@@ -7,6 +7,7 @@ import { postJournalEntry } from "@/lib/journal";
 import { voidJournalEntry } from "@/lib/voidTransaction";
 import { getAccountsReceivableAccount, getAccountsPayableAccount } from "@/lib/controlAccounts";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
+import { getExpenseBalance } from "@/lib/expenseBalance";
 import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -19,28 +20,38 @@ async function assertCashOrBankAccount(accountId: string) {
   return account;
 }
 
-/** Pays off an unpaid (on-credit) expense in full — no partial bill payments yet. */
-export async function payExpense(formData: FormData) {
+/** Records a payment against an on-credit expense (bill), allowing partial payments. */
+export async function recordExpensePayment(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.MANAGE_TRANSACTIONS);
   const expenseId = String(formData.get("expenseId") ?? "");
   const paymentDate = String(formData.get("paymentDate") ?? "");
   const accountId = String(formData.get("accountId") ?? "");
+  const amount = Number(formData.get("amount"));
 
-  if (!expenseId || !paymentDate || !accountId) {
-    redirect(`/expenses?error=${encodeURIComponent("Date and payment account are required.")}`);
+  if (!expenseId || !paymentDate || !accountId || !Number.isFinite(amount) || amount <= 0) {
+    redirect(`/expenses?error=${encodeURIComponent("Date, account, and a positive amount are required.")}`);
   }
 
-  const [expense] = await sql`SELECT id, amount, payment_status FROM expenses WHERE id = ${expenseId}`;
+  const [expense] = await sql`SELECT id, payment_status FROM expenses WHERE id = ${expenseId}`;
   if (!expense) redirect(`/expenses?error=${encodeURIComponent("Expense not found.")}`);
-  if (expense.payment_status !== "unpaid") {
-    redirect(`/expenses?error=${encodeURIComponent("This expense is already paid.")}`);
+  if (expense.payment_status !== "unpaid" && expense.payment_status !== "partial") {
+    redirect(`/expenses?error=${encodeURIComponent("This expense isn't open for payment.")}`);
+  }
+
+  const balance = await getExpenseBalance(expenseId);
+
+  if (amount > balance.remainingOwed + 0.001) {
+    redirect(
+      `/expenses?error=${encodeURIComponent(`Amount exceeds the remaining balance of Rs ${balance.remainingOwed.toFixed(2)}.`)}`
+    );
   }
 
   let error: string | null = null;
   try {
     await assertCashOrBankAccount(accountId);
     const ap = await getAccountsPayableAccount();
-    const amount = Number(expense.amount);
+    const newRemaining = Math.round((balance.remainingOwed - amount) * 100) / 100;
+    const newStatus = newRemaining <= 0.001 ? "paid" : "partial";
 
     await postJournalEntry({
       entryDate: paymentDate,
@@ -57,7 +68,7 @@ export async function payExpense(formData: FormData) {
           VALUES ('out', ${paymentDate}, ${amount}, ${accountId}, 'expense', ${expenseId}, ${journalEntryId}, ${session.user.id})
           RETURNING id
         `;
-        await tx`UPDATE expenses SET payment_status = 'paid', payment_account_id = ${accountId} WHERE id = ${expenseId}`;
+        await tx`UPDATE expenses SET payment_status = ${newStatus} WHERE id = ${expenseId}`;
         return payment.id as number;
       },
     });
@@ -67,7 +78,7 @@ export async function payExpense(formData: FormData) {
       action: "pay",
       entityType: "expense",
       entityId: expenseId,
-      details: { amount, accountId },
+      details: { amount, accountId, newStatus },
     });
   } catch (err: any) {
     error = err?.message || "Could not record payment.";
@@ -171,9 +182,9 @@ export async function voidPayment(formData: FormData) {
         await tx`UPDATE payments SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${paymentId}`;
 
         if (payment.applied_to_type === "expense") {
-          await tx`
-            UPDATE expenses SET payment_status = 'unpaid', payment_account_id = NULL WHERE id = ${payment.applied_to_id}
-          `;
+          const balance = await getExpenseBalance(payment.applied_to_id, tx);
+          const newStatus = balance.paid === 0 ? "unpaid" : balance.remainingOwed <= 0.001 ? "paid" : "partial";
+          await tx`UPDATE expenses SET payment_status = ${newStatus} WHERE id = ${payment.applied_to_id}`;
         } else if (payment.applied_to_type === "invoice") {
           const balance = await getInvoiceBalance(payment.applied_to_id, tx);
           const newStatus =
