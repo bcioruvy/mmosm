@@ -21,7 +21,7 @@ const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
 ];
 
 const linkClasses =
-  "flex items-center gap-3 rounded-md px-3 py-2 text-sm no-underline text-brand-contrast/85 hover:bg-brand-hover";
+  "sidebar-row flex items-center gap-3 rounded-md px-3 py-2.5 text-sm no-underline text-brand-contrast-muted hover:bg-brand-hover hover:text-brand-contrast focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-contrast";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -38,9 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar businessName={businessName} navItems={visibleItems}>
-        <a href="/change-password" className={linkClasses}>
+        <a href="/change-password" title="Change password" className={linkClasses}>
           <KeyRound className="h-4 w-4 shrink-0" />
-          Change password
+          <span className="sidebar-label">Change password</span>
         </a>
         <form
           action={async () => {
@@ -48,9 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             await signOut({ redirectTo: "/login" });
           }}
         >
-          <button type="submit" className={`w-full border-0 bg-transparent text-left ${linkClasses}`}>
+          <button type="submit" title="Sign out" className={`w-full border-0 bg-transparent text-left ${linkClasses}`}>
             <LogOut className="h-4 w-4 shrink-0" />
-            Sign out
+            <span className="sidebar-label">Sign out</span>
           </button>
         </form>
       </Sidebar>

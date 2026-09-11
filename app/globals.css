@@ -15,6 +15,24 @@
   --color-error: #b00020;
   --color-warning: #8a5a00;
   --color-warning-bg: #fff3d6;
+  --color-brand-contrast-muted: #d9c4c0;
+}
+
+/*
+ * Sidebar collapse: the label/row visibility here is driven by a
+ * "sidebar-collapsed" class toggled by React state (app/(app)/Sidebar.tsx),
+ * not a Tailwind utility — the change-password/sign-out rows are
+ * server-rendered children of the client Sidebar component, so plain CSS
+ * cascade is what lets them respond to collapse state without prop-drilling.
+ */
+@media (min-width: 768px) {
+  .sidebar-collapsed .sidebar-label {
+    display: none;
+  }
+
+  .sidebar-collapsed .sidebar-row {
+    justify-content: center;
+  }
 }
 
 * {

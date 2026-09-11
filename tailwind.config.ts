@@ -20,6 +20,7 @@ const config: Config = {
           DEFAULT: "var(--color-brand)",
           hover: "var(--color-brand-hover)",
           contrast: "var(--color-brand-contrast)",
+          "contrast-muted": "var(--color-brand-contrast-muted)",
         },
         surface: "var(--color-surface)",
         muted: "var(--color-text-muted)",
