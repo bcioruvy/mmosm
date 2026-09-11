@@ -8,6 +8,15 @@ import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { sendInvoice, deleteInvoiceDraft, voidInvoice } from "../actions";
 import { recordInvoicePayment, voidPayment } from "../../payments/actions";
 import { issueCreditNote, voidCreditNote } from "../../credit-notes/actions";
+import { FileText, Send, Trash2, Ban, CreditCard, Undo2 } from "lucide-react";
+
+const STATUS_STYLES: Record<string, string> = {
+  draft: "bg-brand-tint text-muted",
+  sent: "bg-brand-tint text-brand",
+  partial: "bg-brand-tint text-brand",
+  paid: "bg-brand-tint text-success",
+  void: "bg-brand-tint text-error",
+};
 
 export default async function InvoiceDetailPage({
   params,
@@ -66,231 +75,288 @@ export default async function InvoiceDetailPage({
   const canVoidInvoice = canVoid && isPostedAtAll && !hasActiveChildren;
 
   return (
-    <main style={{ maxWidth: 800, margin: "40px 0", padding: 24 }}>
+    <main className="max-w-4xl px-6 py-10">
       <p>
         <a href="/invoices">&larr; Invoices</a>
       </p>
-      <h1>
-        {invoice.invoice_number} <small>({invoice.status})</small>
+      <h1 className="mt-2 flex flex-wrap items-center gap-3 text-2xl font-bold">
+        <FileText className="h-6 w-6 text-brand" />
+        {invoice.invoice_number}
+        <span className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${STATUS_STYLES[invoice.status] ?? "bg-brand-tint text-muted"}`}>
+          {invoice.status === "void" ? "Voided" : invoice.status}
+        </span>
       </h1>
-      {searchParams.error && <p style={{ color: "#b00020" }}>{searchParams.error}</p>}
-      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Done.</p>}
+      {searchParams.error && <p className="mt-3 text-sm font-medium text-error">{searchParams.error}</p>}
+      {searchParams.success && <p className="mt-3 text-sm font-medium text-success">Done.</p>}
 
-      <p>
-        Customer: {invoice.customer_name}
-        <br />
-        Invoice date: {new Date(invoice.invoice_date).toLocaleDateString()}
-        <br />
-        Due date: {new Date(invoice.due_date).toLocaleDateString()}
-        <br />
-        Revenue account: {invoice.revenue_code} — {invoice.revenue_name}
-        {invoice.notes && (
-          <>
-            <br />
-            Notes: {invoice.notes}
-          </>
-        )}
-      </p>
+      <div className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-muted">Customer</dt>
+            <dd>{invoice.customer_name}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Revenue account</dt>
+            <dd>
+              {invoice.revenue_code} — {invoice.revenue_name}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted">Invoice date</dt>
+            <dd>{new Date(invoice.invoice_date).toLocaleDateString()}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Due date</dt>
+            <dd>{new Date(invoice.due_date).toLocaleDateString()}</dd>
+          </div>
+          {invoice.notes && (
+            <div className="sm:col-span-2">
+              <dt className="text-muted">Notes</dt>
+              <dd>{invoice.notes}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-            <th>Description</th>
-            <th>Qty</th>
-            <th>Unit price</th>
-            <th>Discount</th>
-            <th>Line total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((l: any, i: number) => (
-            <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
-              <td>{l.description}</td>
-              <td>{Number(l.quantity)}</td>
-              <td>{formatCurrency(Number(l.unit_price))}</td>
-              <td>{Number(l.discount_percent)}%</td>
-              <td>{formatCurrency(Number(l.line_total))}</td>
+      <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <table className="w-full min-w-[600px] border-collapse">
+          <thead>
+            <tr className="border-b text-left">
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Unit price</th>
+              <th>Discount</th>
+              <th>Line total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <p>
-        <strong>Total: {formatCurrency(total)}</strong>
-      </p>
+          </thead>
+          <tbody>
+            {lines.map((l: any, i: number) => (
+              <tr key={i} className="border-b">
+                <td>{l.description}</td>
+                <td>{Number(l.quantity)}</td>
+                <td>{formatCurrency(Number(l.unit_price))}</td>
+                <td>{Number(l.discount_percent)}%</td>
+                <td>{formatCurrency(Number(l.line_total))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-3 text-right">
+          <strong>Total: {formatCurrency(total)}</strong>
+        </p>
+      </div>
 
       {invoice.status === "draft" && (
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="mt-6 flex gap-2">
           <form action={sendInvoice}>
             <input type="hidden" name="id" value={invoice.id} />
-            <button type="submit">Send (posts to ledger)</button>
+            <button type="submit" className="inline-flex items-center gap-1.5">
+              <Send className="h-3.5 w-3.5" />
+              Send (posts to ledger)
+            </button>
           </form>
           <form action={deleteInvoiceDraft}>
             <input type="hidden" name="id" value={invoice.id} />
-            <button type="submit">Delete draft</button>
+            <button type="submit" className="inline-flex items-center gap-1.5">
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete draft
+            </button>
           </form>
         </div>
       )}
 
       {isPostedAtAll && balance && (
         <>
-          <h2 style={{ marginTop: 32 }}>Payments</h2>
-          <p>
-            Paid: {formatCurrency(balance.paid)} — Credited to balance: {formatCurrency(balance.creditedToAR)} —
-            Remaining owed: {formatCurrency(balance.remainingOwed)}
-          </p>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-                <th>Date</th>
-                <th>Account</th>
-                <th>Amount</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p: any) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid #eee", opacity: p.voided_at ? 0.5 : 1 }}>
-                  <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                  <td>
-                    {p.account_code} — {p.account_name}
-                  </td>
-                  <td>{formatCurrency(Number(p.amount))}</td>
-                  <td>
-                    {p.voided_at ? (
-                      "Voided"
-                    ) : (
-                      canVoid && (
-                        <form action={voidPayment} style={{ display: "flex", gap: 4 }}>
-                          <input type="hidden" name="paymentId" value={p.id} />
-                          <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
-                          <button type="submit">Void</button>
-                        </form>
-                      )
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-sm">
+            <h2 className="flex items-center gap-2 text-base font-semibold">
+              <CreditCard className="h-4 w-4 text-brand" />
+              Payments
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Paid: {formatCurrency(balance.paid)} — Credited to balance: {formatCurrency(balance.creditedToAR)} —
+              Remaining owed: {formatCurrency(balance.remainingOwed)}
+            </p>
 
-          {isOpen && (
-            <>
-              {cashAccounts.length === 0 && (
-                <p style={{ color: "#b00020" }}>
-                  No account is tagged "Cash or Bank" yet — tag one on{" "}
-                  <a href="/accounts">Chart of Accounts</a> to record a payment.
-                </p>
-              )}
-              {cashAccounts.length > 0 && (
-                <form
-                  action={recordInvoicePayment}
-                  style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
-                >
-                  <input type="hidden" name="invoiceId" value={invoice.id} />
-                  <input name="paymentDate" type="date" required />
-                  <select name="accountId" required defaultValue="">
-                    <option value="" disabled>
-                      Received into…
-                    </option>
-                    {cashAccounts.map((a: any) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} — {a.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={balance.remainingOwed}
-                    placeholder="Amount"
-                    required
-                  />
-                  <button type="submit">Record payment</button>
-                </form>
-              )}
-            </>
-          )}
-
-          <h2 style={{ marginTop: 32 }}>Credit notes</h2>
-          {creditNotes.length > 0 && (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
-              <thead>
-                <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-                  <th>Number</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Type</th>
-                  <th>Reason</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {creditNotes.map((cn: any) => (
-                  <tr key={cn.id} style={{ borderBottom: "1px solid #eee", opacity: cn.voided_at ? 0.5 : 1 }}>
-                    <td>{cn.credit_note_number}</td>
-                    <td>{new Date(cn.credit_date).toLocaleDateString()}</td>
-                    <td>{formatCurrency(Number(cn.amount))}</td>
-                    <td>
-                      {cn.refund_account_code
-                        ? `Cash refund (${cn.refund_account_code} — ${cn.refund_account_name})`
-                        : "Applied to balance owed"}
-                    </td>
-                    <td>{cn.reason ?? ""}</td>
-                    <td>
-                      {cn.voided_at ? (
-                        "Voided"
-                      ) : (
-                        canVoid && (
-                          <form action={voidCreditNote} style={{ display: "flex", gap: 4 }}>
-                            <input type="hidden" name="creditNoteId" value={cn.id} />
-                            <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
-                            <button type="submit">Void</button>
-                          </form>
-                        )
-                      )}
-                    </td>
+            {payments.length > 0 && (
+              <table className="mt-4 w-full border-collapse">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Amount</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody>
+                  {payments.map((p: any) => (
+                    <tr key={p.id} className="border-b" style={{ opacity: p.voided_at ? 0.5 : 1 }}>
+                      <td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                      <td>
+                        {p.account_code} — {p.account_name}
+                      </td>
+                      <td>{formatCurrency(Number(p.amount))}</td>
+                      <td>
+                        {p.voided_at ? (
+                          "Voided"
+                        ) : (
+                          canVoid && (
+                            <form action={voidPayment} className="flex flex-wrap items-center gap-1.5 py-1">
+                              <input type="hidden" name="paymentId" value={p.id} />
+                              <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                              <button type="submit" className="inline-flex items-center gap-1.5">
+                                <Ban className="h-3.5 w-3.5" />
+                                Void
+                              </button>
+                            </form>
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
 
-          {(balance.remainingOwed > 0.001 || balance.refundableCash > 0.001) && (
-            <form action={issueCreditNote} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <input type="hidden" name="invoiceId" value={invoice.id} />
-              <input name="creditDate" type="date" required />
-              <input name="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required />
-              <select name="mode" required defaultValue="">
-                <option value="" disabled>
-                  Type…
-                </option>
-                {balance.remainingOwed > 0.001 && <option value="apply_to_balance">Apply to balance owed</option>}
-                {balance.refundableCash > 0.001 && <option value="refund_cash">Refund via cash/bank</option>}
-              </select>
-              <select name="refundAccountId" defaultValue="">
-                <option value="">(only for cash refund)</option>
-                {cashAccounts.map((a: any) => (
-                  <option key={a.id} value={a.id}>
-                    {a.code} — {a.name}
+            {isOpen && (
+              <>
+                {cashAccounts.length === 0 && (
+                  <p className="mt-4 text-sm font-medium text-error">
+                    No account is tagged "Cash or Bank" yet — tag one on{" "}
+                    <a href="/accounts">Chart of Accounts</a> to record a payment.
+                  </p>
+                )}
+                {cashAccounts.length > 0 && (
+                  <form
+                    action={recordInvoicePayment}
+                    className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4"
+                  >
+                    <input type="hidden" name="invoiceId" value={invoice.id} />
+                    <input name="paymentDate" type="date" required />
+                    <select name="accountId" required defaultValue="">
+                      <option value="" disabled>
+                        Received into…
+                      </option>
+                      {cashAccounts.map((a: any) => (
+                        <option key={a.id} value={a.id}>
+                          {a.code} — {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={balance.remainingOwed}
+                      placeholder="Amount"
+                      required
+                    />
+                    <button type="submit" className="inline-flex items-center gap-1.5">
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Record payment
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-sm">
+            <h2 className="flex items-center gap-2 text-base font-semibold">
+              <Undo2 className="h-4 w-4 text-brand" />
+              Credit notes
+            </h2>
+
+            {creditNotes.length > 0 && (
+              <table className="mt-4 w-full border-collapse">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th>Number</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Type</th>
+                    <th>Reason</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {creditNotes.map((cn: any) => (
+                    <tr key={cn.id} className="border-b" style={{ opacity: cn.voided_at ? 0.5 : 1 }}>
+                      <td>{cn.credit_note_number}</td>
+                      <td>{new Date(cn.credit_date).toLocaleDateString()}</td>
+                      <td>{formatCurrency(Number(cn.amount))}</td>
+                      <td>
+                        {cn.refund_account_code
+                          ? `Cash refund (${cn.refund_account_code} — ${cn.refund_account_name})`
+                          : "Applied to balance owed"}
+                      </td>
+                      <td>{cn.reason ?? ""}</td>
+                      <td>
+                        {cn.voided_at ? (
+                          "Voided"
+                        ) : (
+                          canVoid && (
+                            <form action={voidCreditNote} className="flex flex-wrap items-center gap-1.5 py-1">
+                              <input type="hidden" name="creditNoteId" value={cn.id} />
+                              <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                              <button type="submit" className="inline-flex items-center gap-1.5">
+                                <Ban className="h-3.5 w-3.5" />
+                                Void
+                              </button>
+                            </form>
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {(balance.remainingOwed > 0.001 || balance.refundableCash > 0.001) && (
+              <form
+                action={issueCreditNote}
+                className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4"
+              >
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <input name="creditDate" type="date" required />
+                <input name="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required />
+                <select name="mode" required defaultValue="">
+                  <option value="" disabled>
+                    Type…
                   </option>
-                ))}
-              </select>
-              <input name="reason" placeholder="Reason" />
-              <button type="submit">Issue credit note</button>
-            </form>
-          )}
+                  {balance.remainingOwed > 0.001 && <option value="apply_to_balance">Apply to balance owed</option>}
+                  {balance.refundableCash > 0.001 && <option value="refund_cash">Refund via cash/bank</option>}
+                </select>
+                <select name="refundAccountId" defaultValue="">
+                  <option value="">(only for cash refund)</option>
+                  {cashAccounts.map((a: any) => (
+                    <option key={a.id} value={a.id}>
+                      {a.code} — {a.name}
+                    </option>
+                  ))}
+                </select>
+                <input name="reason" placeholder="Reason" />
+                <button type="submit" className="inline-flex items-center gap-1.5">
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Issue credit note
+                </button>
+              </form>
+            )}
+          </div>
 
           {canVoidInvoice && (
-            <form action={voidInvoice} style={{ display: "flex", gap: 8, marginTop: 32 }}>
+            <form action={voidInvoice} className="mt-6 flex flex-wrap items-center gap-2">
               <input type="hidden" name="id" value={invoice.id} />
               <input name="reason" placeholder="Reason (optional)" />
-              <button type="submit">Void invoice</button>
+              <button type="submit" className="inline-flex items-center gap-1.5">
+                <Ban className="h-3.5 w-3.5" />
+                Void invoice
+              </button>
             </form>
           )}
           {canVoid && isPostedAtAll && hasActiveChildren && (
-            <p style={{ color: "var(--color-text-muted)", marginTop: 16 }}>
+            <p className="mt-4 text-sm text-muted">
               This invoice can't be voided while it has active payments or credit notes — void those first.
             </p>
           )}

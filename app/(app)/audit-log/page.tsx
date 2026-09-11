@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { todayISO, daysAgoISO } from "@/lib/reports/dates";
+import { History } from "lucide-react";
 
 const RESULT_LIMIT = 200;
 
@@ -40,14 +41,20 @@ export default async function AuditLogPage({
   `;
 
   return (
-    <main style={{ maxWidth: 1100, margin: "40px 0", padding: 24 }}>
-      <h1>Audit Trail</h1>
+    <main className="max-w-screen-2xl px-6 py-10">
+      <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <History className="h-6 w-6 text-brand" />
+        Audit Trail
+      </h1>
 
-      <form method="get" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-        <label>
+      <form
+        method="get"
+        className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm"
+      >
+        <label className="flex items-center gap-2 text-sm text-muted">
           From <input type="date" name="start" defaultValue={start} />
         </label>
-        <label>
+        <label className="flex items-center gap-2 text-sm text-muted">
           To <input type="date" name="end" defaultValue={end} />
         </label>
         <select name="entityType" defaultValue={entityType}>
@@ -70,42 +77,42 @@ export default async function AuditLogPage({
       </form>
 
       {entries.length === RESULT_LIMIT && (
-        <p style={{ color: "var(--color-text-muted)" }}>
+        <p className="mt-3 text-sm text-muted">
           Showing the latest {RESULT_LIMIT} matching entries — narrow the date range or filters to see more
           precisely.
         </p>
       )}
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-            <th>Timestamp</th>
-            <th>Actor</th>
-            <th>Action</th>
-            <th>Entity</th>
-            <th>Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((e: any) => (
-            <tr key={e.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td>{new Date(e.created_at).toLocaleString()}</td>
-              <td>{e.actor_name ?? "—"}</td>
-              <td>{e.action}</td>
-              <td>
-                {e.entity_type === "invoice" ? (
-                  <a href={`/invoices/${e.entity_id}`}>
-                    invoice #{e.entity_id}
-                  </a>
-                ) : (
-                  `${e.entity_type} #${e.entity_id}`
-                )}
-              </td>
-              <td style={{ fontFamily: "monospace", fontSize: "0.85em" }}>{JSON.stringify(e.details)}</td>
+      <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <table className="w-full min-w-[800px] border-collapse">
+          <thead>
+            <tr className="border-b text-left">
+              <th>Timestamp</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Entity</th>
+              <th>Details</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {entries.map((e: any) => (
+              <tr key={e.id} className="border-b">
+                <td>{new Date(e.created_at).toLocaleString()}</td>
+                <td>{e.actor_name ?? "—"}</td>
+                <td>{e.action}</td>
+                <td>
+                  {e.entity_type === "invoice" ? (
+                    <a href={`/invoices/${e.entity_id}`}>invoice #{e.entity_id}</a>
+                  ) : (
+                    `${e.entity_type} #${e.entity_id}`
+                  )}
+                </td>
+                <td className="font-mono text-xs">{JSON.stringify(e.details)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
