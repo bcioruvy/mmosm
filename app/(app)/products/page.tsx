@@ -43,9 +43,14 @@ export default async function ProductsPage({
                 <td>
                   <form action={updateProduct} className="flex flex-wrap items-center gap-2 py-2">
                     <input type="hidden" name="id" value={p.id} />
-                    <input name="sku" defaultValue={p.sku ?? ""} placeholder="SKU" style={{ width: 100 }} />
-                    <input name="name" defaultValue={p.name} required />
-                    <input name="description" defaultValue={p.description ?? ""} placeholder="Description" />
+                    <input name="sku" defaultValue={p.sku ?? ""} placeholder="SKU" className="w-28 shrink-0" />
+                    <input name="name" defaultValue={p.name} required className="min-w-[180px] flex-1" />
+                    <input
+                      name="description"
+                      defaultValue={p.description ?? ""}
+                      placeholder="Description"
+                      className="min-w-[200px] flex-[2]"
+                    />
                     <input
                       name="defaultPrice"
                       type="number"
@@ -53,7 +58,7 @@ export default async function ProductsPage({
                       min="0"
                       defaultValue={p.default_price ?? ""}
                       placeholder="Default price"
-                      style={{ width: 110 }}
+                      className="w-36 shrink-0"
                     />
                     <button type="submit">Save</button>
                   </form>
@@ -87,11 +92,18 @@ export default async function ProductsPage({
           <Plus className="h-4 w-4 text-brand" />
           Add product
         </h2>
-        <form action={createProduct} className="flex flex-wrap items-center gap-2">
-          <input name="sku" placeholder="SKU (optional)" style={{ width: 100 }} />
-          <input name="name" placeholder="Name" required />
-          <input name="description" placeholder="Description" />
-          <input name="defaultPrice" type="number" step="0.01" min="0" placeholder="Default price (optional)" style={{ width: 150 }} />
+        <form action={createProduct} className="flex flex-wrap items-center gap-3">
+          <input name="sku" placeholder="SKU (optional)" className="min-w-[150px] flex-1" />
+          <input name="name" placeholder="Name" required className="min-w-[180px] flex-[2]" />
+          <input name="description" placeholder="Description" className="min-w-[220px] flex-[3]" />
+          <input
+            name="defaultPrice"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Default price (optional)"
+            className="min-w-[200px] flex-1"
+          />
           <button type="submit">Add</button>
         </form>
       </div>
