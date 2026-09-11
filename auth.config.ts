@@ -46,6 +46,8 @@ export const authConfig: NextAuthConfig = {
         ["/payments", PERMISSIONS.MANAGE_TRANSACTIONS],
         ["/credit-notes", PERMISSIONS.MANAGE_TRANSACTIONS],
         ["/reports", PERMISSIONS.VIEW_REPORTS],
+        ["/audit-log", PERMISSIONS.VIEW_AUDIT_LOG],
+        ["/settings", PERMISSIONS.MANAGE_SETTINGS],
       ];
 
       for (const [prefix, permission] of routePermissions) {
