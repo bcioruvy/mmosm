@@ -3,7 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
-import { voidPayment } from "./actions";
+import { voidPayment, updatePaymentNotes } from "./actions";
 import { CreditCard, Ban } from "lucide-react";
 
 export default async function PaymentsPage({
@@ -57,6 +57,7 @@ export default async function PaymentsPage({
               <th>Account</th>
               <th>Amount</th>
               <th>Status</th>
+              <th>Notes</th>
               <th></th>
             </tr>
           </thead>
@@ -75,6 +76,19 @@ export default async function PaymentsPage({
                 </td>
                 <td>{formatCurrency(Number(p.amount))}</td>
                 <td>{p.voided_at ? "Voided" : "Active"}</td>
+                <td>
+                  {p.voided_at ? (
+                    p.notes ?? ""
+                  ) : (
+                    <form action={updatePaymentNotes} className="flex items-center gap-1.5">
+                      <input type="hidden" name="paymentId" value={p.id} />
+                      <input name="notes" defaultValue={p.notes ?? ""} placeholder="Notes" style={{ width: 140 }} />
+                      <button type="submit" className="text-xs">
+                        Save
+                      </button>
+                    </form>
+                  )}
+                </td>
                 <td>
                   {!p.voided_at && canVoid && (
                     <form action={voidPayment} className="flex flex-wrap items-center gap-1.5 py-2">

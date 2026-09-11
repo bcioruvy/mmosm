@@ -3,7 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
-import { createManualJournalEntry, voidManualJournalEntry } from "./actions";
+import { createManualJournalEntry, voidManualJournalEntry, updateJournalEntryDescription } from "./actions";
 import JournalLineEditor from "./JournalLineEditor";
 import { NotebookPen, Ban, Plus } from "lucide-react";
 
@@ -60,9 +60,24 @@ export default async function JournalEntriesPage({
         {entries.map((e: any) => (
           <div key={e.id} className="rounded-xl border border-border bg-surface p-5 shadow-sm" style={{ opacity: e.voided_at ? 0.5 : 1 }}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold">{new Date(e.entry_date).toLocaleDateString()}</span>
-                <span className="ml-2">{e.description}</span>
+                {e.voided_at ? (
+                  <span className="ml-2">{e.description}</span>
+                ) : (
+                  <form action={updateJournalEntryDescription} className="ml-2 flex items-center gap-1.5">
+                    <input type="hidden" name="entryId" value={e.id} />
+                    <input
+                      name="description"
+                      defaultValue={e.description}
+                      required
+                      style={{ width: 240 }}
+                    />
+                    <button type="submit" className="text-xs">
+                      Save
+                    </button>
+                  </form>
+                )}
                 {e.voided_at && (
                   <span className="ml-2 rounded-full bg-brand-tint px-2.5 py-0.5 text-sm font-medium text-error">Voided</span>
                 )}

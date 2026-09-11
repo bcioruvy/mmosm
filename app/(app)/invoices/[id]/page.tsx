@@ -5,7 +5,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
-import { sendInvoice, deleteInvoiceDraft, voidInvoice } from "../actions";
+import { sendInvoice, deleteInvoiceDraft, voidInvoice, updateInvoiceNotes } from "../actions";
 import { recordInvoicePayment, voidPayment } from "../../payments/actions";
 import { issueCreditNote, voidCreditNote } from "../../credit-notes/actions";
 import { FileText, Send, Trash2, Ban, CreditCard, Undo2 } from "lucide-react";
@@ -109,12 +109,27 @@ export default async function InvoiceDetailPage({
             <dt className="text-muted">Due date</dt>
             <dd>{new Date(invoice.due_date).toLocaleDateString()}</dd>
           </div>
-          {invoice.notes && (
-            <div className="sm:col-span-2">
-              <dt className="text-muted">Notes</dt>
-              <dd>{invoice.notes}</dd>
-            </div>
-          )}
+          <div className="sm:col-span-2">
+            <dt className="text-muted">Notes</dt>
+            <dd>
+              {invoice.status === "void" ? (
+                invoice.notes ?? ""
+              ) : (
+                <form action={updateInvoiceNotes} className="flex flex-wrap items-center gap-1.5">
+                  <input type="hidden" name="invoiceId" value={invoice.id} />
+                  <input
+                    name="notes"
+                    defaultValue={invoice.notes ?? ""}
+                    placeholder="Notes"
+                    style={{ flex: 1, minWidth: 240 }}
+                  />
+                  <button type="submit" className="text-xs">
+                    Save
+                  </button>
+                </form>
+              )}
+            </dd>
+          </div>
         </dl>
       </div>
 

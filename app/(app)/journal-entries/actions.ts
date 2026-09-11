@@ -81,6 +81,54 @@ export async function createManualJournalEntry(formData: FormData) {
   redirect("/journal-entries?success=1");
 }
 
+/**
+ * Edits only the description field on a manual entry — no financial
+ * data. Scoped to source_type = 'manual' so an auto-generated entry's
+ * description (Expense/Payment/Income/Credit-note/Void postings) can
+ * never be reached through this action. description is NOT NULL on
+ * journal_entries, so (unlike the other entities' notes) it can be
+ * shortened but not cleared to empty. Blocked once voided.
+ */
+export async function updateJournalEntryDescription(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_JOURNAL_ENTRIES);
+  const entryId = String(formData.get("entryId") ?? "");
+  const newDescription = String(formData.get("description") ?? "").trim();
+
+  if (!newDescription) {
+    redirect(`/journal-entries?error=${encodeURIComponent("Description can't be empty.")}`);
+  }
+
+  const [entry] = await sql`
+    SELECT id, description, voided_at FROM journal_entries WHERE id = ${entryId} AND source_type = 'manual'
+  `;
+  if (!entry) redirect(`/journal-entries?error=${encodeURIComponent("Journal entry not found.")}`);
+  if (entry.voided_at) {
+    redirect(`/journal-entries?error=${encodeURIComponent("Can't edit the description on a voided entry.")}`);
+  }
+
+  if (entry.description === newDescription) {
+    redirect("/journal-entries?success=1");
+  }
+
+  let error: string | null = null;
+  try {
+    await sql`UPDATE journal_entries SET description = ${newDescription} WHERE id = ${entryId}`;
+    await logAudit({
+      actorId: session.user.id,
+      action: "edit_notes",
+      entityType: "manual_journal_entry",
+      entityId: entryId,
+      details: { field: "description", oldValue: entry.description, newValue: newDescription },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not update description.";
+  }
+
+  if (error) redirect(`/journal-entries?error=${encodeURIComponent(error)}`);
+  revalidatePath("/journal-entries");
+  redirect("/journal-entries?success=1");
+}
+
 export async function voidManualJournalEntry(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
   const entryId = String(formData.get("entryId") ?? "");

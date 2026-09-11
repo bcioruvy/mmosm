@@ -97,6 +97,41 @@ export async function createExpense(formData: FormData) {
   redirect("/expenses?success=1");
 }
 
+/** Edits only the notes field — no financial data. Blocked once voided. */
+export async function updateExpenseNotes(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_TRANSACTIONS);
+  const expenseId = String(formData.get("expenseId") ?? "");
+  const newNotes = String(formData.get("notes") ?? "").trim() || null;
+
+  const [expense] = await sql`SELECT id, notes, voided_at FROM expenses WHERE id = ${expenseId}`;
+  if (!expense) redirect(`/expenses?error=${encodeURIComponent("Expense not found.")}`);
+  if (expense.voided_at) {
+    redirect(`/expenses?error=${encodeURIComponent("Can't edit notes on a voided expense.")}`);
+  }
+
+  if ((expense.notes ?? null) === newNotes) {
+    redirect("/expenses?success=1");
+  }
+
+  let error: string | null = null;
+  try {
+    await sql`UPDATE expenses SET notes = ${newNotes} WHERE id = ${expenseId}`;
+    await logAudit({
+      actorId: session.user.id,
+      action: "edit_notes",
+      entityType: "expense",
+      entityId: expenseId,
+      details: { field: "notes", oldValue: expense.notes, newValue: newNotes },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not update notes.";
+  }
+
+  if (error) redirect(`/expenses?error=${encodeURIComponent(error)}`);
+  revalidatePath("/expenses");
+  redirect("/expenses?success=1");
+}
+
 export async function voidExpense(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
   const expenseId = String(formData.get("expenseId") ?? "");

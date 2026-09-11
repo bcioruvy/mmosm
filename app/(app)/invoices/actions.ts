@@ -175,6 +175,42 @@ export async function deleteInvoiceDraft(formData: FormData) {
   redirect("/invoices?success=1");
 }
 
+/** Edits only the notes field — no financial data. Blocked once voided. */
+export async function updateInvoiceNotes(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_TRANSACTIONS);
+  const invoiceId = String(formData.get("invoiceId") ?? "");
+  const newNotes = String(formData.get("notes") ?? "").trim() || null;
+
+  const [invoice] = await sql`SELECT id, notes, status FROM invoices WHERE id = ${invoiceId}`;
+  if (!invoice) redirect(`/invoices?error=${encodeURIComponent("Invoice not found.")}`);
+  if (invoice.status === "void") {
+    redirect(`/invoices/${invoiceId}?error=${encodeURIComponent("Can't edit notes on a voided invoice.")}`);
+  }
+
+  if ((invoice.notes ?? null) === newNotes) {
+    redirect(`/invoices/${invoiceId}?success=1`);
+  }
+
+  let error: string | null = null;
+  try {
+    await sql`UPDATE invoices SET notes = ${newNotes} WHERE id = ${invoiceId}`;
+    await logAudit({
+      actorId: session.user.id,
+      action: "edit_notes",
+      entityType: "invoice",
+      entityId: invoiceId,
+      details: { field: "notes", oldValue: invoice.notes, newValue: newNotes },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not update notes.";
+  }
+
+  if (error) redirect(`/invoices/${invoiceId}?error=${encodeURIComponent(error)}`);
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  redirect(`/invoices/${invoiceId}?success=1`);
+}
+
 export async function voidInvoice(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
   const invoiceId = String(formData.get("id") ?? "");

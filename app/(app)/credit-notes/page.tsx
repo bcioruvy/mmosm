@@ -3,7 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
-import { voidCreditNote } from "./actions";
+import { voidCreditNote, updateCreditNoteReason } from "./actions";
 import { Undo2, Ban } from "lucide-react";
 
 export default async function CreditNotesPage({
@@ -71,7 +71,19 @@ export default async function CreditNotesPage({
                     ? `Cash refund (${cn.refund_account_code} — ${cn.refund_account_name})`
                     : "Applied to balance owed"}
                 </td>
-                <td>{cn.reason ?? ""}</td>
+                <td>
+                  {cn.voided_at ? (
+                    cn.reason ?? ""
+                  ) : (
+                    <form action={updateCreditNoteReason} className="flex items-center gap-1.5">
+                      <input type="hidden" name="creditNoteId" value={cn.id} />
+                      <input name="reason" defaultValue={cn.reason ?? ""} placeholder="Reason" style={{ width: 140 }} />
+                      <button type="submit" className="text-xs">
+                        Save
+                      </button>
+                    </form>
+                  )}
+                </td>
                 <td>{cn.voided_at ? "Voided" : "Active"}</td>
                 <td>
                   {!cn.voided_at && canVoid && (

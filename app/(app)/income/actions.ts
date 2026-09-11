@@ -76,6 +76,41 @@ export async function createIncome(formData: FormData) {
   redirect("/income?success=1");
 }
 
+/** Edits only the notes field — no financial data. Blocked once voided. */
+export async function updateIncomeNotes(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_TRANSACTIONS);
+  const incomeId = String(formData.get("incomeId") ?? "");
+  const newNotes = String(formData.get("notes") ?? "").trim() || null;
+
+  const [income] = await sql`SELECT id, notes, voided_at FROM income WHERE id = ${incomeId}`;
+  if (!income) redirect(`/income?error=${encodeURIComponent("Income entry not found.")}`);
+  if (income.voided_at) {
+    redirect(`/income?error=${encodeURIComponent("Can't edit notes on a voided income entry.")}`);
+  }
+
+  if ((income.notes ?? null) === newNotes) {
+    redirect("/income?success=1");
+  }
+
+  let error: string | null = null;
+  try {
+    await sql`UPDATE income SET notes = ${newNotes} WHERE id = ${incomeId}`;
+    await logAudit({
+      actorId: session.user.id,
+      action: "edit_notes",
+      entityType: "income",
+      entityId: incomeId,
+      details: { field: "notes", oldValue: income.notes, newValue: newNotes },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not update notes.";
+  }
+
+  if (error) redirect(`/income?error=${encodeURIComponent(error)}`);
+  revalidatePath("/income");
+  redirect("/income?success=1");
+}
+
 export async function voidIncome(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
   const incomeId = String(formData.get("incomeId") ?? "");

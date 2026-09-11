@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
-import { createExpense, voidExpense } from "./actions";
+import { createExpense, voidExpense, updateExpenseNotes } from "./actions";
 import { recordExpensePayment } from "../payments/actions";
 import { Receipt, CreditCard, Ban, Plus } from "lucide-react";
 
@@ -98,7 +98,19 @@ export default async function ExpensesPage({
                         ? `Partial — ${formatCurrency(e.remaining)} owed`
                         : "Unpaid (bill)"}
                 </td>
-                <td>{e.notes ?? ""}</td>
+                <td>
+                  {e.voided_at ? (
+                    e.notes ?? ""
+                  ) : (
+                    <form action={updateExpenseNotes} className="flex items-center gap-1.5">
+                      <input type="hidden" name="expenseId" value={e.id} />
+                      <input name="notes" defaultValue={e.notes ?? ""} placeholder="Notes" style={{ width: 140 }} />
+                      <button type="submit" className="text-xs">
+                        Save
+                      </button>
+                    </form>
+                  )}
+                </td>
                 <td>
                   <div className="flex flex-col gap-1 py-2">
                     {!e.voided_at &&

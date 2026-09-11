@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
-import { createIncome, voidIncome } from "./actions";
+import { createIncome, voidIncome, updateIncomeNotes } from "./actions";
 import { TrendingUp, Ban, Plus } from "lucide-react";
 
 export default async function IncomePage({
@@ -72,7 +72,19 @@ export default async function IncomePage({
                 <td>{i.source ?? ""}</td>
                 <td>{formatCurrency(Number(i.amount))}</td>
                 <td>{i.voided_at ? "Voided" : `${i.payment_code} — ${i.payment_name}`}</td>
-                <td>{i.notes ?? ""}</td>
+                <td>
+                  {i.voided_at ? (
+                    i.notes ?? ""
+                  ) : (
+                    <form action={updateIncomeNotes} className="flex items-center gap-1.5">
+                      <input type="hidden" name="incomeId" value={i.id} />
+                      <input name="notes" defaultValue={i.notes ?? ""} placeholder="Notes" style={{ width: 140 }} />
+                      <button type="submit" className="text-xs">
+                        Save
+                      </button>
+                    </form>
+                  )}
+                </td>
                 <td>
                   {!i.voided_at && canVoid && (
                     <form action={voidIncome} className="flex flex-wrap items-center gap-1.5 py-2">

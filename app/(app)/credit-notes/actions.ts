@@ -101,6 +101,41 @@ export async function issueCreditNote(formData: FormData) {
   redirect(`/invoices/${invoiceId}?success=1`);
 }
 
+/** Edits only the reason field — no financial data. Blocked once voided. */
+export async function updateCreditNoteReason(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_TRANSACTIONS);
+  const creditNoteId = String(formData.get("creditNoteId") ?? "");
+  const newReason = String(formData.get("reason") ?? "").trim() || null;
+
+  const [creditNote] = await sql`SELECT id, reason, voided_at FROM credit_notes WHERE id = ${creditNoteId}`;
+  if (!creditNote) redirect(`/credit-notes?error=${encodeURIComponent("Credit note not found.")}`);
+  if (creditNote.voided_at) {
+    redirect(`/credit-notes?error=${encodeURIComponent("Can't edit the reason on a voided credit note.")}`);
+  }
+
+  if ((creditNote.reason ?? null) === newReason) {
+    redirect("/credit-notes?success=1");
+  }
+
+  let error: string | null = null;
+  try {
+    await sql`UPDATE credit_notes SET reason = ${newReason} WHERE id = ${creditNoteId}`;
+    await logAudit({
+      actorId: session.user.id,
+      action: "edit_notes",
+      entityType: "credit_note",
+      entityId: creditNoteId,
+      details: { field: "reason", oldValue: creditNote.reason, newValue: newReason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not update reason.";
+  }
+
+  if (error) redirect(`/credit-notes?error=${encodeURIComponent(error)}`);
+  revalidatePath("/credit-notes");
+  redirect("/credit-notes?success=1");
+}
+
 export async function voidCreditNote(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
   const creditNoteId = String(formData.get("creditNoteId") ?? "");
