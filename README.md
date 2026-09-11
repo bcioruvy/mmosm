@@ -11,7 +11,11 @@ financial reports (P&L, Balance Sheet, Trial Balance).
 - Raw SQL (no ORM migrations — schema applied via Neon's SQL editor)
 
 ## Status
-🚧 In progress — Stage 1 foundation done: auth, Chart of Accounts management,
-user management, change password, permission-based route/action protection,
-audit log wiring. Next up: Stage 2 (customers/vendors, expenses, income,
-invoicing, payments, refunds).
+🚧 In progress — Stages 1-4 done: auth/roles/permissions, Chart of
+Accounts and user management, customers/vendors, expenses/income,
+invoicing, payments, refunds/credit notes, all financial and
+operational reports (Trial Balance, P&L, Balance Sheet, General
+Ledger, AR/AP Aging, Sales/Expense/Income), the brand-themed UI shell,
+Settings, the audit trail viewer, and the Dashboard. Next up: Stage 5
+(Products/inventory scaffolding — schema and basic CRUD only, no
+inventory valuation/COGS automation).
