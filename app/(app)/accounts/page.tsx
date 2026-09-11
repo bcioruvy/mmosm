@@ -29,7 +29,7 @@ export default async function AccountsPage({
   `;
 
   return (
-    <main className="max-w-[1100px] px-6 py-10">
+    <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
         <BookOpen className="h-6 w-6 text-brand" />
         Chart of Accounts
