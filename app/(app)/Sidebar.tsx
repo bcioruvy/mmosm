@@ -94,8 +94,8 @@ export default function Sidebar({
   return (
     <>
       <div className="flex items-center justify-between border-b border-brand-hover bg-brand px-4 py-3 text-brand-contrast md:hidden">
-        <Link href="/" className="text-lg font-bold text-brand-contrast no-underline">
-          {businessName}
+        <Link href="/" className="no-underline" aria-label={businessName}>
+          <img src="/logo.png" alt={businessName} className="h-8 w-auto" />
         </Link>
         <button
           type="button"
@@ -117,8 +117,8 @@ export default function Sidebar({
         } ${collapsed ? "md:w-16" : "md:w-64"} ${collapsed ? "sidebar-collapsed" : ""}`}
       >
         <div className="sidebar-row hidden items-center justify-between gap-2 border-b border-brand-hover px-4 py-5 md:flex">
-          <Link href="/" className="sidebar-label truncate text-lg font-bold text-brand-contrast no-underline">
-            {businessName}
+          <Link href="/" className="sidebar-label no-underline" aria-label={businessName}>
+            <img src="/logo.png" alt={businessName} className="h-8 w-auto" />
           </Link>
           <button
             type="button"
