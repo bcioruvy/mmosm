@@ -25,6 +25,9 @@ export default async function ReportsPage() {
         <li>
           <a href="/reports/balance-sheet">Balance Sheet</a>
         </li>
+        <li>
+          <a href="/reports/general-ledger">General Ledger</a>
+        </li>
       </ul>
     </main>
   );
