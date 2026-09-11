@@ -25,7 +25,7 @@ export default async function InvoicesPage({
       ORDER BY i.invoice_date DESC, i.id DESC
     `,
     sql`SELECT id, name FROM customers WHERE is_active = true ORDER BY name`,
-    sql`SELECT id, code, name FROM accounts WHERE is_active = true AND type = 'revenue' ORDER BY code`,
+    sql`SELECT id, code, name FROM accounts WHERE is_active = true AND type = 'revenue' AND code != '4900' ORDER BY code`,
   ]);
 
   return (

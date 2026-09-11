@@ -28,7 +28,7 @@ export default async function IncomePage({
       JOIN accounts pay ON pay.id = i.payment_account_id
       ORDER BY i.income_date DESC, i.id DESC
     `,
-    sql`SELECT id, code, name FROM accounts WHERE is_active = true AND type = 'revenue' ORDER BY code`,
+    sql`SELECT id, code, name FROM accounts WHERE is_active = true AND type = 'revenue' AND code != '4900' ORDER BY code`,
     getCashOrBankAccounts(),
   ]);
 

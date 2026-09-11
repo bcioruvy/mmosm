@@ -24,7 +24,7 @@ export async function createIncome(formData: FormData) {
   }
 
   const [category] = await sql`
-    SELECT id, name FROM accounts WHERE id = ${categoryAccountId} AND type = 'revenue' AND is_active = true
+    SELECT id, name FROM accounts WHERE id = ${categoryAccountId} AND type = 'revenue' AND code != '4900' AND is_active = true
   `;
   if (!category) redirect(`/income?error=${encodeURIComponent("Choose a valid revenue/other-income category.")}`);
 

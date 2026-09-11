@@ -96,6 +96,25 @@ baseline instead of against memory.
   chosen cash/bank account, capped at what's actually been paid so
   far). Vendor-side refunds (a vendor refunding an on-credit expense)
   are not built here — deferred, not silently dropped.
+
+  Account 4900 is `type = 'revenue'` (so `computeNetIncome` can find it
+  in the same account-type bucket as real revenue) but must never be
+  directly selectable as an invoice's revenue account or an income
+  category — the only things allowed to post to it are `issueCreditNote`
+  (always a debit) and that credit note's own void reversal (always a
+  matching credit). Every query that lists "revenue accounts" for a
+  dropdown or validates one server-side — `app/(app)/invoices/page.tsx`,
+  `app/(app)/invoices/actions.ts`, `app/(app)/income/page.tsx`,
+  `app/(app)/income/actions.ts` — filters it out with `code != '4900'`.
+  If a stray invoice or income entry ever does target 4900 (e.g. picked
+  before this filter existed), it posts a bare credit with no offsetting
+  debit, which `computeNetIncome`'s `debit - credit` for code 4900 reads
+  as a negative "returns" — and subtracting a negative return from gross
+  sales displays as addition on the P&L (`netRevenue = grossSales -
+  returns`). Found 2026-09-11 from exactly that symptom; existing bad
+  entries aren't cleaned up by this filter — they still need to be
+  identified (journal_lines joined to accounts where code='4900', filtered
+  to source_type NOT IN ('credit_note','void')) and voided by hand.
 - `009_expense_due_date.sql` — adds `expenses.due_date` (nullable),
   used only by AP Aging (Stage 3). Bills with no due date are aged by
   `expense_date` instead.

@@ -48,7 +48,7 @@ export async function createInvoice(formData: FormData) {
   if (!customer) redirect(`/invoices?error=${encodeURIComponent("Customer not found.")}`);
 
   const [revenueAccount] = await sql`
-    SELECT id FROM accounts WHERE id = ${revenueAccountId} AND type = 'revenue' AND is_active = true
+    SELECT id FROM accounts WHERE id = ${revenueAccountId} AND type = 'revenue' AND code != '4900' AND is_active = true
   `;
   if (!revenueAccount) redirect(`/invoices?error=${encodeURIComponent("Choose a valid revenue account.")}`);
 
