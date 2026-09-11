@@ -1,6 +1,8 @@
 import { auth, signOut } from "@/auth";
 import sql from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
+import { KeyRound, LogOut } from "lucide-react";
+import Sidebar from "./Sidebar";
 
 const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
   { href: "/", label: "Dashboard" },
@@ -18,6 +20,9 @@ const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
   { href: "/settings", label: "Settings", permission: PERMISSIONS.MANAGE_SETTINGS },
 ];
 
+const linkClasses =
+  "flex items-center gap-3 rounded-md px-3 py-2 text-sm no-underline text-brand-contrast/85 hover:bg-brand-hover";
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
@@ -31,51 +36,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <header
-        style={{
-          background: "var(--color-brand)",
-          color: "var(--color-brand-contrast)",
-          padding: "12px 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <a href="/" style={{ color: "var(--color-brand-contrast)", fontWeight: 700, fontSize: "1.1em" }}>
-          {businessName}
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <Sidebar businessName={businessName} navItems={visibleItems}>
+        <a href="/change-password" className={linkClasses}>
+          <KeyRound className="h-4 w-4 shrink-0" />
+          Change password
         </a>
-        <nav style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-          {visibleItems.map((item) => (
-            <a key={item.href} href={item.href} style={{ color: "var(--color-brand-contrast)" }}>
-              {item.label}
-            </a>
-          ))}
-          <a href="/change-password" style={{ color: "var(--color-brand-contrast)" }}>
-            Change password
-          </a>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button
-              type="submit"
-              style={{
-                background: "transparent",
-                border: "1px solid var(--color-brand-contrast)",
-                color: "var(--color-brand-contrast)",
-              }}
-            >
-              Sign out
-            </button>
-          </form>
-        </nav>
-      </header>
-      <div style={{ padding: "0 24px" }}>{children}</div>
+        <form
+          action={async () => {
+            "use server";
+            await signOut({ redirectTo: "/login" });
+          }}
+        >
+          <button type="submit" className={`w-full border-0 bg-transparent text-left ${linkClasses}`}>
+            <LogOut className="h-4 w-4 shrink-0" />
+            Sign out
+          </button>
+        </form>
+      </Sidebar>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
