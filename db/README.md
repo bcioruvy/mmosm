@@ -83,3 +83,6 @@ baseline instead of against memory.
   chosen cash/bank account, capped at what's actually been paid so
   far). Vendor-side refunds (a vendor refunding an on-credit expense)
   are not built here — deferred, not silently dropped.
+- `009_expense_due_date.sql` — adds `expenses.due_date` (nullable),
+  used only by AP Aging (Stage 3). Bills with no due date are aged by
+  `expense_date` instead.

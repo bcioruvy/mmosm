@@ -28,6 +28,21 @@ export default async function ReportsPage() {
         <li>
           <a href="/reports/general-ledger">General Ledger</a>
         </li>
+        <li>
+          <a href="/reports/ar-aging">AR Aging</a>
+        </li>
+        <li>
+          <a href="/reports/ap-aging">AP Aging</a>
+        </li>
+        <li>
+          <a href="/reports/sales">Sales Report</a>
+        </li>
+        <li>
+          <a href="/reports/expenses">Expense Report</a>
+        </li>
+        <li>
+          <a href="/reports/income">Income Report</a>
+        </li>
       </ul>
     </main>
   );

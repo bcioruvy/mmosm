@@ -19,6 +19,7 @@ export async function createExpense(formData: FormData) {
   const categoryAccountId = String(formData.get("categoryAccountId") ?? "");
   const amount = Number(formData.get("amount"));
   const paymentChoice = String(formData.get("paymentChoice") ?? "");
+  const dueDate = String(formData.get("dueDate") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim();
 
   if (!expenseDate || !categoryAccountId || !paymentChoice || !Number.isFinite(amount) || amount <= 0) {
@@ -67,11 +68,11 @@ export async function createExpense(formData: FormData) {
         const [expense] = await tx`
           INSERT INTO expenses (
             expense_date, vendor_id, category_account_id, amount,
-            payment_status, payment_account_id, notes, journal_entry_id, created_by
+            payment_status, payment_account_id, due_date, notes, journal_entry_id, created_by
           )
           VALUES (
             ${expenseDate}, ${vendorId}, ${categoryAccountId}, ${amount},
-            ${isOnCredit ? "unpaid" : "paid"}, ${paymentAccountId}, ${notes || null}, ${journalEntryId}, ${session.user.id}
+            ${isOnCredit ? "unpaid" : "paid"}, ${paymentAccountId}, ${isOnCredit ? dueDate : null}, ${notes || null}, ${journalEntryId}, ${session.user.id}
           )
           RETURNING id
         `;

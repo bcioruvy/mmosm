@@ -134,6 +134,9 @@ export default async function ExpensesPage({
           ))}
           <option value="on_credit">On credit (bill — pay later)</option>
         </select>
+        <label>
+          Due date (bills only) <input name="dueDate" type="date" />
+        </label>
         <input name="notes" placeholder="Notes" />
         <button type="submit">Add</button>
       </form>
