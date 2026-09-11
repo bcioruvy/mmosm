@@ -3,34 +3,31 @@ import { formatCurrency } from "@/lib/currency";
 import { journalLinesInRange, journalLinesThroughDate } from "@/lib/reports/journalFilters";
 import { computeNetIncome } from "@/lib/reports/netIncome";
 import { findCrossPeriodAdjustments, hasCrossPeriodAdjustments } from "@/lib/reports/crossPeriodAdjustments";
+import { expenseBreakdown } from "@/lib/reports/expenseBreakdown";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { todayISO } from "@/lib/reports/dates";
 import { resolvePeriod, PERIOD_PRESETS } from "@/lib/reports/periods";
 import { trailingMonths } from "@/lib/reports/months";
 import TrendChart from "./TrendChart";
+import DonutChart from "./DonutChart";
 import CrossPeriodAdjustmentsNote from "./reports/CrossPeriodAdjustmentsNote";
+import { StatCard, NetIncomeHero, CardHeader } from "./DashboardCards";
+import {
+  TrendingUp,
+  Package,
+  Percent,
+  Receipt,
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  BarChart3,
+  PieChart,
+  FileText,
+  Calendar,
+  History,
+} from "lucide-react";
 
 const WIDGET_LIMIT = 8;
-
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div
-      style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: 8,
-        padding: "14px 18px",
-        minWidth: 160,
-      }}
-    >
-      <div style={{ color: "var(--color-text-muted)", fontSize: "0.8em", textTransform: "uppercase", letterSpacing: "0.02em" }}>
-        {label}
-      </div>
-      <div style={{ fontSize: "1.4em", fontWeight: 600, marginTop: 4 }}>{value}</div>
-      {sub && <div style={{ color: "var(--color-text-muted)", fontSize: "0.8em", marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
-}
 
 export default async function DashboardPage({
   searchParams,
@@ -51,6 +48,7 @@ export default async function DashboardPage({
   `;
   const { netRevenue, cogs, grossProfit, expenses: opEx, netIncome } = computeNetIncome(periodRows as any);
   const crossPeriodAdjustments = await findCrossPeriodAdjustments(start, end);
+  const expenseCategories = expenseBreakdown(periodRows as any);
 
   const [{ cash_balance }] = await sql`
     SELECT COALESCE(SUM(f.debit), 0) - COALESCE(SUM(f.credit), 0) AS cash_balance
@@ -108,161 +106,178 @@ export default async function DashboardPage({
   `;
 
   return (
-    <main style={{ maxWidth: 1100, margin: "40px auto", padding: 24 }}>
-      <h1>Dashboard</h1>
+    <main className="mx-auto max-w-[1100px] px-6 py-10">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-        {PERIOD_PRESETS.map((p) => (
-          <a
-            key={p.value}
-            href={`/?period=${p.value}`}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "1px solid var(--color-border)",
-              background: preset === p.value ? "var(--color-brand)" : "var(--color-surface)",
-              color: preset === p.value ? "var(--color-brand-contrast)" : "var(--color-text)",
-            }}
-          >
-            {p.label}
-          </a>
-        ))}
+      <div className="mb-2 mt-4 flex flex-wrap gap-2">
+        {PERIOD_PRESETS.map((p) => {
+          const isActive = preset === p.value;
+          return (
+            <a
+              key={p.value}
+              href={`/?period=${p.value}`}
+              className={`rounded-md border px-3 py-1.5 text-sm no-underline transition-colors ${
+                isActive ? "border-brand bg-brand text-brand-contrast" : "border-border bg-surface hover:bg-brand-tint"
+              }`}
+            >
+              {p.label}
+            </a>
+          );
+        })}
       </div>
-      <form method="get" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 24 }}>
+      <form method="get" className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-3">
         <input type="hidden" name="period" value="custom" />
-        <label>
+        <label className="flex items-center gap-2 text-sm text-muted">
           From <input type="date" name="start" defaultValue={preset === "custom" ? start : ""} />
         </label>
-        <label>
+        <label className="flex items-center gap-2 text-sm text-muted">
           To <input type="date" name="end" defaultValue={preset === "custom" ? end : ""} />
         </label>
         <button type="submit">Custom range</button>
       </form>
 
-      <p style={{ color: "var(--color-text-muted)" }}>
-        Period figures below cover {start} to {end}. Cash, AR, and AP are as of today — balances, not
-        period flows.
+      <p className="mb-4 text-sm text-muted">
+        Period figures below cover {start} to {end}. Cash, AR, and AP are as of today — balances, not period flows.
       </p>
 
       <CrossPeriodAdjustmentsNote adjustments={crossPeriodAdjustments} />
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-        <Tile label="Revenue" value={formatCurrency(netRevenue)} />
-        <Tile label="COGS" value={formatCurrency(cogs)} />
-        <Tile label="Gross Profit" value={formatCurrency(grossProfit)} />
-        <Tile label="Operating Expenses" value={formatCurrency(opEx)} />
-        <Tile label={netIncome >= 0 ? "Net Profit" : "Net Loss"} value={formatCurrency(Math.abs(netIncome))} />
+      <div className="mb-4">
+        <NetIncomeHero isProfit={netIncome >= 0} value={formatCurrency(Math.abs(netIncome))} />
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 32 }}>
-        <Tile label="Cash Balance" value={formatCurrency(Number(cash_balance))} sub="as of today" />
-        <Tile label="Accounts Receivable" value={formatCurrency(arTotal)} sub="as of today" />
-        <Tile label="Accounts Payable" value={formatCurrency(apTotal)} sub="as of today" />
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard icon={TrendingUp} label="Revenue" value={formatCurrency(netRevenue)} />
+        <StatCard icon={Package} label="COGS" value={formatCurrency(cogs)} />
+        <StatCard icon={Percent} label="Gross Profit" value={formatCurrency(grossProfit)} />
+        <StatCard icon={Receipt} label="Operating Expenses" value={formatCurrency(opEx)} />
       </div>
 
-      <h2>Profit / Loss Trend (last 6 months)</h2>
-      <TrendChart data={trend} />
+      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard icon={Wallet} label="Cash Balance" value={formatCurrency(Number(cash_balance))} sub="as of today" />
+        <StatCard icon={ArrowDownCircle} label="Accounts Receivable" value={formatCurrency(arTotal)} sub="as of today" />
+        <StatCard icon={ArrowUpCircle} label="Accounts Payable" value={formatCurrency(apTotal)} sub="as of today" />
+      </div>
 
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 32 }}>
-        <section style={{ flex: "1 1 320px" }}>
-          <h2>
-            Outstanding Invoices{" "}
-            <a href="/reports/ar-aging" style={{ fontSize: "0.6em", fontWeight: "normal" }}>
-              (view all)
-            </a>
-          </h2>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <CardHeader icon={BarChart3} title="Profit / Loss Trend (last 6 months)" />
+          <TrendChart data={trend} />
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <CardHeader icon={PieChart} title="Expenses by Category" />
+          <DonutChart data={expenseCategories} />
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <CardHeader
+            icon={FileText}
+            title="Outstanding Invoices"
+            action={
+              <a href="/reports/ar-aging" className="text-xs text-brand no-underline hover:underline">
+                View all
+              </a>
+            }
+          />
+          <table className="w-full border-collapse">
             <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
+              <tr className="border-b text-left">
                 <th>Invoice</th>
                 <th>Customer</th>
                 <th>Due</th>
-                <th style={{ textAlign: "right" }}>Owed</th>
+                <th className="text-right">Owed</th>
               </tr>
             </thead>
             <tbody>
               {openInvoices.slice(0, WIDGET_LIMIT).map((inv: any) => (
-                <tr key={inv.id} style={{ borderBottom: "1px solid #eee" }}>
+                <tr key={inv.id} className="border-b">
                   <td>
                     <a href={`/invoices/${inv.id}`}>{inv.invoice_number}</a>
                   </td>
                   <td>{inv.customer_name}</td>
                   <td>{new Date(inv.due_date).toLocaleDateString()}</td>
-                  <td style={{ textAlign: "right" }}>{formatCurrency(inv.remaining)}</td>
+                  <td className="text-right">{formatCurrency(inv.remaining)}</td>
                 </tr>
               ))}
               {openInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ color: "var(--color-text-muted)" }}>
+                  <td colSpan={4} className="text-muted">
                     Nothing outstanding.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </section>
+        </div>
 
-        <section style={{ flex: "1 1 320px" }}>
-          <h2>
-            Upcoming Bills{" "}
-            <a href="/reports/ap-aging" style={{ fontSize: "0.6em", fontWeight: "normal" }}>
-              (view all)
-            </a>
-          </h2>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <CardHeader
+            icon={Calendar}
+            title="Upcoming Bills"
+            action={
+              <a href="/reports/ap-aging" className="text-xs text-brand no-underline hover:underline">
+                View all
+              </a>
+            }
+          />
+          <table className="w-full border-collapse">
             <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
+              <tr className="border-b text-left">
                 <th>Vendor</th>
                 <th>Category</th>
                 <th>Due</th>
-                <th style={{ textAlign: "right" }}>Amount</th>
+                <th className="text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
               {unpaidExpenses.slice(0, WIDGET_LIMIT).map((e: any) => (
-                <tr key={e.id} style={{ borderBottom: "1px solid #eee" }}>
+                <tr key={e.id} className="border-b">
                   <td>{e.vendor_name}</td>
                   <td>{e.category_name}</td>
                   <td>{new Date(e.due_date ?? e.expense_date).toLocaleDateString()}</td>
-                  <td style={{ textAlign: "right" }}>{formatCurrency(Number(e.amount))}</td>
+                  <td className="text-right">{formatCurrency(Number(e.amount))}</td>
                 </tr>
               ))}
               {unpaidExpenses.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ color: "var(--color-text-muted)" }}>
+                  <td colSpan={4} className="text-muted">
                     Nothing due.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </section>
+        </div>
       </div>
 
-      <h2 style={{ marginTop: 32 }}>Recent Transactions</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Type</th>
-            <th style={{ textAlign: "right" }}>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recentEntries.map((entry: any) => (
-            <tr key={entry.id} style={{ borderBottom: "1px solid #eee", opacity: entry.voided_at ? 0.5 : 1 }}>
-              <td>{new Date(entry.entry_date).toLocaleDateString()}</td>
-              <td>
-                {entry.description}
-                {entry.voided_at ? " (voided)" : ""}
-              </td>
-              <td>{entry.source_type}</td>
-              <td style={{ textAlign: "right" }}>{formatCurrency(Number(entry.amount))}</td>
+      <div className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <CardHeader icon={History} title="Recent Transactions" />
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b text-left">
+              <th>Date</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th className="text-right">Amount</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {recentEntries.map((entry: any) => (
+              <tr key={entry.id} className="border-b" style={{ opacity: entry.voided_at ? 0.5 : 1 }}>
+                <td>{new Date(entry.entry_date).toLocaleDateString()}</td>
+                <td>
+                  {entry.description}
+                  {entry.voided_at ? " (voided)" : ""}
+                </td>
+                <td>{entry.source_type}</td>
+                <td className="text-right">{formatCurrency(Number(entry.amount))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

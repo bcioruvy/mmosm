@@ -16,6 +16,7 @@
   --color-warning: #8a5a00;
   --color-warning-bg: #fff3d6;
   --color-brand-contrast-muted: #d9c4c0;
+  --color-brand-tint: #f3e3e5;
 }
 
 /*
@@ -37,6 +38,25 @@
 
 * {
   box-sizing: border-box;
+}
+
+/*
+ * Preflight is off (see tailwind.config.ts) so legacy tag defaults
+ * survive untouched — but that also means Tailwind's border-width
+ * utilities (border, border-b, border-t, ...) never get a border-style,
+ * and CSS defaults border-style to "none": a bare border-width has zero
+ * visual effect without this. This is the one slice of preflight it's
+ * safe to keep — a zero-width, solid-style baseline on every element —
+ * since it does nothing until something (a Tailwind utility, or a
+ * legacy rule's own explicit `border: ... solid ...` shorthand, which
+ * already sets its own style regardless) sets a non-zero width.
+ */
+*,
+::before,
+::after {
+  border-width: 0;
+  border-style: solid;
+  border-color: var(--color-border);
 }
 
 body {
