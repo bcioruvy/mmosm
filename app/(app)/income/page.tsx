@@ -5,8 +5,8 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
 import { Fragment } from "react";
-import { createIncome, voidIncome, updateIncomeNotes } from "./actions";
-import { TrendingUp, Ban, Plus } from "lucide-react";
+import { createIncome, voidIncome, updateIncomeNotes, reclassifyIncome } from "./actions";
+import { TrendingUp, Ban, Plus, ArrowRightLeft } from "lucide-react";
 import InlineEditField from "../InlineEditField";
 import Disclosure from "../Disclosure";
 
@@ -25,7 +25,7 @@ export default async function IncomePage({
   const [income, categoryAccounts, cashAccounts] = await Promise.all([
     sql`
       SELECT i.id, i.income_date, i.amount, i.source, i.notes, i.voided_at,
-        cat.code AS category_code, cat.name AS category_name,
+        i.category_account_id, cat.code AS category_code, cat.name AS category_name,
         pay.code AS payment_code, pay.name AS payment_name
       FROM income i
       JOIN accounts cat ON cat.id = i.category_account_id
@@ -88,17 +88,42 @@ export default async function IncomePage({
                           value={i.notes ?? null}
                           placeholder="Notes"
                         />
-                        {canVoid && (
-                          <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
-                            <form action={voidIncome} className="flex flex-wrap items-center gap-1.5">
-                              <input type="hidden" name="incomeId" value={i.id} />
-                              <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
-                              <button type="submit" className="text-xs">
-                                Confirm
-                              </button>
-                            </form>
-                          </Disclosure>
-                        )}
+                        <div className="flex flex-wrap items-center gap-3">
+                          {canVoid && (
+                            <Disclosure label="Reclassify" icon={<ArrowRightLeft className="h-3.5 w-3.5" />}>
+                              <form action={reclassifyIncome} className="flex flex-wrap items-center gap-1.5">
+                                <input type="hidden" name="incomeId" value={i.id} />
+                                <select name="newCategoryAccountId" required defaultValue="">
+                                  <option value="" disabled>
+                                    Reclassify to…
+                                  </option>
+                                  {categoryAccounts
+                                    .filter((a: any) => a.id !== i.category_account_id)
+                                    .map((a: any) => (
+                                      <option key={a.id} value={a.id}>
+                                        {a.code} — {a.name}
+                                      </option>
+                                    ))}
+                                </select>
+                                <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                                <button type="submit" className="text-xs">
+                                  Confirm
+                                </button>
+                              </form>
+                            </Disclosure>
+                          )}
+                          {canVoid && (
+                            <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
+                              <form action={voidIncome} className="flex flex-wrap items-center gap-1.5">
+                                <input type="hidden" name="incomeId" value={i.id} />
+                                <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                                <button type="submit" className="text-xs">
+                                  Confirm
+                                </button>
+                              </form>
+                            </Disclosure>
+                          )}
+                        </div>
                       </div>
                     )}
                   </td>

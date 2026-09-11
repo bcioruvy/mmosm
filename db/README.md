@@ -237,3 +237,33 @@ reversal inside the range, its original's `entry_date NOT BETWEEN`
 start and end) and `app/(app)/reports/CrossPeriodAdjustmentsNote.tsx`
 surfaces it on Profit & Loss and the Dashboard instead of leaving the
 one-sided figure unexplained.
+
+No new migration for this one either — `reclassifyExpense`/
+`reclassifyIncome` (`app/(app)/expenses/actions.ts`,
+`app/(app)/income/actions.ts`) fix a miscategorized expense or income
+entry without ever editing a posted entry in place: void the original
+via the exact same `voidJournalEntry` mechanism used everywhere else
+(offsetting reversal dated today, original marked voided), then, inside
+that same DB transaction, post a brand-new entry identical in every way
+except the account — also dated today, everything else (vendor/source,
+amount, notes, payment fields) copied verbatim. One atomic operation;
+if any part fails, nothing happens. Gated by `void_transactions` alone,
+not a new permission — every role holding it already holds
+`manage_transactions` too, confirmed against the actual seeded
+`roles.permissions` rather than assumed. `reclassifyExpense` reuses
+`voidExpense`'s active-payment guard (extracted into a shared
+`hasActivePayment` helper rather than duplicated) — an expense with any
+active payment must have that payment voided first, exactly as for a
+plain void; income has no equivalent guard since it's never paid
+on-credit in the first place. The new entry's `journal_entries.source_type`
+is `'reclassify'`, not `'expense'`/`'income'` — confirmed via a full
+grep that nothing anywhere filters on those values for report purposes
+(only the journal-entries page's own `'manual'` filter and the
+cross-period-adjustments detector's `'void'` filter care), so this is a
+free, safe way to make a reclassify-driven entry visibly distinct from
+an ordinary one on the Dashboard's Recent Transactions and the General
+Ledger report, which both already display `source_type` as a plain
+column. Exactly one `audit_log` row is written per reclassify
+(`action: "reclassify"`, `details: { fromAccountId, toAccountId,
+newRecordId, reason }`) — not a separate "void" row plus a separate
+"create" row, which would read as two unrelated events instead of one.

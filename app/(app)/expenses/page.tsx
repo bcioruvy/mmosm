@@ -5,9 +5,9 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
 import { Fragment } from "react";
-import { createExpense, voidExpense, updateExpenseNotes } from "./actions";
+import { createExpense, voidExpense, updateExpenseNotes, reclassifyExpense } from "./actions";
 import { recordExpensePayment } from "../payments/actions";
-import { Receipt, CreditCard, Ban, Plus } from "lucide-react";
+import { Receipt, CreditCard, Ban, Plus, ArrowRightLeft } from "lucide-react";
 import InlineEditField from "../InlineEditField";
 import Disclosure from "../Disclosure";
 
@@ -26,7 +26,7 @@ export default async function ExpensesPage({
   const [expensesRaw, categoryAccounts, vendors, cashAccounts] = await Promise.all([
     sql`
       SELECT e.id, e.expense_date, e.amount, e.payment_status, e.notes, e.voided_at,
-        cat.code AS category_code, cat.name AS category_name,
+        e.category_account_id, cat.code AS category_code, cat.name AS category_name,
         v.name AS vendor_name,
         pay.code AS payment_code, pay.name AS payment_name,
         COALESCE(p.paid, 0) AS paid
@@ -148,6 +148,29 @@ export default async function ExpensesPage({
                                 </form>
                               </Disclosure>
                             )}
+                          {canVoid && Number(e.paid) === 0 && (
+                            <Disclosure label="Reclassify" icon={<ArrowRightLeft className="h-3.5 w-3.5" />}>
+                              <form action={reclassifyExpense} className="flex flex-wrap items-center gap-1.5">
+                                <input type="hidden" name="expenseId" value={e.id} />
+                                <select name="newCategoryAccountId" required defaultValue="">
+                                  <option value="" disabled>
+                                    Reclassify to…
+                                  </option>
+                                  {categoryAccounts
+                                    .filter((a: any) => a.id !== e.category_account_id)
+                                    .map((a: any) => (
+                                      <option key={a.id} value={a.id}>
+                                        {a.code} — {a.name}
+                                      </option>
+                                    ))}
+                                </select>
+                                <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                                <button type="submit" className="text-xs">
+                                  Confirm
+                                </button>
+                              </form>
+                            </Disclosure>
+                          )}
                           {canVoid && (
                             <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
                               <form action={voidExpense} className="flex flex-wrap items-center gap-1.5">
