@@ -1,4 +1,5 @@
 import { auth, signOut } from "@/auth";
+import sql from "@/lib/db";
 import { PERMISSIONS } from "@/lib/permissions";
 
 const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
@@ -13,6 +14,7 @@ const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
   { href: "/credit-notes", label: "Credit Notes", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   { href: "/reports", label: "Reports", permission: PERMISSIONS.VIEW_REPORTS },
   { href: "/users", label: "Users", permission: PERMISSIONS.MANAGE_USERS },
+  { href: "/settings", label: "Settings", permission: PERMISSIONS.MANAGE_SETTINGS },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +22,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const permissions = session?.user?.permissions ?? [];
 
   const visibleItems = NAV_ITEMS.filter((item) => !item.permission || permissions.includes(item.permission));
+
+  let businessName = "mmosm Accounting";
+  if (session?.user) {
+    const [settings] = await sql`SELECT business_name FROM business_settings WHERE id = 1`;
+    if (settings?.business_name) businessName = settings.business_name;
+  }
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -36,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         }}
       >
         <a href="/" style={{ color: "var(--color-brand-contrast)", fontWeight: 700, fontSize: "1.1em" }}>
-          mmosm Accounting
+          {businessName}
         </a>
         <nav style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
           {visibleItems.map((item) => (

@@ -86,3 +86,10 @@ baseline instead of against memory.
 - `009_expense_due_date.sql` — adds `expenses.due_date` (nullable),
   used only by AP Aging (Stage 3). Bills with no due date are aged by
   `expense_date` instead.
+- `010_settings.sql` — creates `business_settings` (a singleton row,
+  id always 1) and adds a `manage_settings` permission, owner_admin
+  only. Holds business name/contact/address and the invoice-number
+  prefix. Changing the prefix only affects invoices created after the
+  change — `invoices.invoice_number` is a fixed string written once at
+  creation, never recomputed from this table, so existing invoice
+  numbers are untouched by design.

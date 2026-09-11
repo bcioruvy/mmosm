@@ -6,6 +6,7 @@ export const PERMISSIONS = {
   MANAGE_TRANSACTIONS: "manage_transactions",
   VIEW_REPORTS: "view_reports",
   VIEW_AUDIT_LOG: "view_audit_log",
+  MANAGE_SETTINGS: "manage_settings",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

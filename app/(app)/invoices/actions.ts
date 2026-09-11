@@ -51,13 +51,16 @@ export async function createInvoice(formData: FormData) {
   `;
   if (!revenueAccount) redirect(`/invoices?error=${encodeURIComponent("Choose a valid revenue account.")}`);
 
+  const [settings] = await sql`SELECT invoice_prefix FROM business_settings WHERE id = 1`;
+  const invoicePrefix = settings?.invoice_prefix ?? "INV";
+
   let invoiceId: number;
   try {
     invoiceId = await sql.begin(async (tx) => {
       const [invoice] = await tx`
         INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, revenue_account_id, notes, status, created_by)
         VALUES (
-          'INV-' || lpad(nextval('invoice_number_seq')::text, 5, '0'),
+          ${invoicePrefix} || '-' || lpad(nextval('invoice_number_seq')::text, 5, '0'),
           ${customerId}, ${invoiceDate}, ${dueDate}, ${revenueAccountId}, ${notes || null}, 'draft', ${session.user.id}
         )
         RETURNING id
