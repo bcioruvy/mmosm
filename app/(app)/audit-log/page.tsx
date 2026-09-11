@@ -28,14 +28,14 @@ export default async function AuditLogPage({
   ]);
 
   const entries = await sql`
-    SELECT a.id, a.action, a.entity_type, a.entity_id, a.details, a.timestamp, u.name AS actor_name
+    SELECT a.id, a.action, a.entity_type, a.entity_id, a.details, a.created_at, u.name AS actor_name
     FROM audit_log a
     LEFT JOIN users u ON u.id = a.actor_id
-    WHERE a.timestamp >= ${start}::date
-      AND a.timestamp < (${end}::date + interval '1 day')
+    WHERE a.created_at >= ${start}::date
+      AND a.created_at < (${end}::date + interval '1 day')
       ${entityType ? sql`AND a.entity_type = ${entityType}` : sql``}
       ${actorId ? sql`AND a.actor_id = ${actorId}` : sql``}
-    ORDER BY a.timestamp DESC
+    ORDER BY a.created_at DESC
     LIMIT ${RESULT_LIMIT}
   `;
 
@@ -89,7 +89,7 @@ export default async function AuditLogPage({
         <tbody>
           {entries.map((e: any) => (
             <tr key={e.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td>{new Date(e.timestamp).toLocaleString()}</td>
+              <td>{new Date(e.created_at).toLocaleString()}</td>
               <td>{e.actor_name ?? "—"}</td>
               <td>{e.action}</td>
               <td>

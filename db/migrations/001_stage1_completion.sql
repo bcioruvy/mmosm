@@ -8,14 +8,15 @@
 --   * users.id / roles.id / roles.name / roles.permissions / users.role_id
 --     / users.is_active / users.password_hash are all already confirmed
 --     live (auth.ts already queries them successfully).
---   * audit_log's column names were originally guessed and got one wrong:
---     the live table uses `actor_id`, not `actor` (confirmed against the
---     real schema after a production 500 on 2026-09-10; lib/audit.ts and
---     the CREATE TABLE below have been corrected to match). This
---     CREATE TABLE is a defensive fallback only — on the already-live DB
---     it was always a no-op, so this correction doesn't need re-running;
---     it's fixed here so a fresh database created from this file matches
---     reality.
+--   * audit_log's column names were originally guessed and got two wrong:
+--     the live table uses `actor_id` not `actor`, and `created_at` not
+--     `timestamp` (both confirmed against the real schema after separate
+--     production 500s on 2026-09-10/11; lib/audit.ts, the audit-log
+--     viewer, and the CREATE TABLE below have all been corrected to
+--     match). This CREATE TABLE is a defensive fallback only — on the
+--     already-live DB it was always a no-op, so these corrections don't
+--     need re-running; they're fixed here so a fresh database created
+--     from this file matches reality.
 --
 -- Safe to run more than once.
 
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   entity_type text NOT NULL,
   entity_id text NOT NULL,
   details jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "timestamp" timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Permission scheme for role-based route/action protection. This is the
