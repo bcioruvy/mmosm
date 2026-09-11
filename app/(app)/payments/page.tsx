@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
 import { voidPayment } from "./actions";
+import { CreditCard, Ban } from "lucide-react";
 
 export default async function PaymentsPage({
   searchParams,
@@ -34,58 +35,63 @@ export default async function PaymentsPage({
   `;
 
   return (
-    <main style={{ maxWidth: 1100, margin: "40px auto", padding: 24 }}>
-      <p>
-        <a href="/">&larr; Home</a>
-      </p>
-      <h1>Payments</h1>
-      {searchParams.error && <p style={{ color: "#b00020" }}>{searchParams.error}</p>}
-      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Done.</p>}
-      <p>
-        Record a payment from an unpaid expense's row on <a href="/expenses">Expenses</a>, or from an
-        open invoice's detail page.
+    <main className="max-w-[1100px] px-6 py-10">
+      <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <CreditCard className="h-6 w-6 text-brand" />
+        Payments
+      </h1>
+      {searchParams.error && <p className="mt-3 text-sm font-medium text-error">{searchParams.error}</p>}
+      {searchParams.success && <p className="mt-3 text-sm font-medium text-success">Done.</p>}
+      <p className="mt-3 text-sm text-muted">
+        Record a payment from an unpaid expense's row on <a href="/expenses">Expenses</a>, or from an open
+        invoice's detail page.
       </p>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-            <th>Date</th>
-            <th>Direction</th>
-            <th>Applied to</th>
-            <th>Account</th>
-            <th>Amount</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {payments.map((p: any) => (
-            <tr key={p.id} style={{ borderBottom: "1px solid #eee", opacity: p.voided_at ? 0.5 : 1 }}>
-              <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-              <td>{p.direction === "in" ? "In" : "Out"}</td>
-              <td>
-                {p.applied_to_type === "invoice"
-                  ? `Invoice ${p.invoice_number} — ${p.customer_name}`
-                  : `Expense — ${p.expense_category_name}`}
-              </td>
-              <td>
-                {p.account_code} — {p.account_name}
-              </td>
-              <td>{formatCurrency(Number(p.amount))}</td>
-              <td>{p.voided_at ? "Voided" : "Active"}</td>
-              <td>
-                {!p.voided_at && canVoid && (
-                  <form action={voidPayment} style={{ display: "flex", gap: 4 }}>
-                    <input type="hidden" name="paymentId" value={p.id} />
-                    <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
-                    <button type="submit">Void</button>
-                  </form>
-                )}
-              </td>
+      <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <table className="w-full min-w-[800px] border-collapse">
+          <thead>
+            <tr className="border-b text-left">
+              <th>Date</th>
+              <th>Direction</th>
+              <th>Applied to</th>
+              <th>Account</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {payments.map((p: any) => (
+              <tr key={p.id} className="border-b" style={{ opacity: p.voided_at ? 0.5 : 1 }}>
+                <td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                <td>{p.direction === "in" ? "In" : "Out"}</td>
+                <td>
+                  {p.applied_to_type === "invoice"
+                    ? `Invoice ${p.invoice_number} — ${p.customer_name}`
+                    : `Expense — ${p.expense_category_name}`}
+                </td>
+                <td>
+                  {p.account_code} — {p.account_name}
+                </td>
+                <td>{formatCurrency(Number(p.amount))}</td>
+                <td>{p.voided_at ? "Voided" : "Active"}</td>
+                <td>
+                  {!p.voided_at && canVoid && (
+                    <form action={voidPayment} className="flex flex-wrap items-center gap-1.5 py-2">
+                      <input type="hidden" name="paymentId" value={p.id} />
+                      <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                      <button type="submit" className="inline-flex items-center gap-1.5">
+                        <Ban className="h-3.5 w-3.5" />
+                        Void
+                      </button>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

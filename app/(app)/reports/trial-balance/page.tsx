@@ -41,7 +41,7 @@ export default async function TrialBalancePage({
   });
 
   return (
-    <main style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 800, margin: "40px 0", padding: 24 }}>
       <p>
         <a href="/reports">&larr; Reports</a>
       </p>

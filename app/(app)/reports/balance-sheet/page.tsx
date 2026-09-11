@@ -47,7 +47,7 @@ export default async function BalanceSheetPage({
   const totalEquity = equityRows.reduce((s: number, r: any) => s + r.amount, 0) + netIncome;
 
   return (
-    <main style={{ maxWidth: 700, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 700, margin: "40px 0", padding: 24 }}>
       <p>
         <a href="/reports">&larr; Reports</a>
       </p>

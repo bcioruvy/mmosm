@@ -40,7 +40,7 @@ export default async function AuditLogPage({
   `;
 
   return (
-    <main style={{ maxWidth: 1100, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 1100, margin: "40px 0", padding: 24 }}>
       <h1>Audit Trail</h1>
 
       <form method="get" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>

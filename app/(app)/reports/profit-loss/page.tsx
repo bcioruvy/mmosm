@@ -48,7 +48,7 @@ export default async function ProfitLossPage({
   const crossPeriodAdjustments = await findCrossPeriodAdjustments(start, end);
 
   return (
-    <main style={{ maxWidth: 700, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 700, margin: "40px 0", padding: 24 }}>
       <p>
         <a href="/reports">&larr; Reports</a>
       </p>

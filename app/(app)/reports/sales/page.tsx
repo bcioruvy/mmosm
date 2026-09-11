@@ -35,7 +35,7 @@ export default async function SalesReportPage({
   let grandTotal = 0;
 
   return (
-    <main style={{ maxWidth: 900, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 900, margin: "40px 0", padding: 24 }}>
       <p>
         <a href="/reports">&larr; Reports</a>
       </p>

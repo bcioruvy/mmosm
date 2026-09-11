@@ -18,7 +18,7 @@ export default async function SettingsPage({
   const [settings] = await sql`SELECT * FROM business_settings WHERE id = 1`;
 
   return (
-    <main style={{ maxWidth: 600, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 600, margin: "40px 0", padding: 24 }}>
       <h1>Settings</h1>
       {searchParams.error && <p style={{ color: "var(--color-error)" }}>{searchParams.error}</p>}
       {searchParams.success && <p style={{ color: "var(--color-success)" }}>Settings saved.</p>}

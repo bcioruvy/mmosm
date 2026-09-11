@@ -66,7 +66,7 @@ export default async function InvoiceDetailPage({
   const canVoidInvoice = canVoid && isPostedAtAll && !hasActiveChildren;
 
   return (
-    <main style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 800, margin: "40px 0", padding: 24 }}>
       <p>
         <a href="/invoices">&larr; Invoices</a>
       </p>

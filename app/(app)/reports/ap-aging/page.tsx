@@ -41,7 +41,7 @@ export default async function APAgingPage({
   const grandTotals: Record<string, number> = { current: 0, "1-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
 
   return (
-    <main style={{ maxWidth: 1000, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 1000, margin: "40px 0", padding: 24 }}>
       <p>
         <a href="/reports">&larr; Reports</a>
       </p>

@@ -11,7 +11,7 @@ export default async function ChangePasswordPage({
   if (!session?.user) redirect("/login");
 
   return (
-    <main style={{ maxWidth: 360, margin: "80px auto", padding: 24 }}>
+    <main style={{ maxWidth: 360, margin: "80px 0", padding: 24 }}>
       <p>
         <a href="/">&larr; Home</a>
       </p>
