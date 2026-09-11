@@ -27,7 +27,7 @@ export default async function APAgingPage({
     FROM expenses e
     JOIN accounts cat ON cat.id = e.category_account_id
     LEFT JOIN vendors v ON v.id = e.vendor_id
-    WHERE e.payment_status = 'unpaid'
+    WHERE e.payment_status = 'unpaid' AND e.voided_at IS NULL
     ORDER BY COALESCE(v.name, ''), e.due_date
   `;
 

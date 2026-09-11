@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { requirePermission } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { postJournalEntry } from "@/lib/journal";
+import { voidJournalEntry } from "@/lib/voidTransaction";
 import { getAccountsReceivableAccount } from "@/lib/controlAccounts";
 import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -172,4 +173,55 @@ export async function deleteInvoiceDraft(formData: FormData) {
 
   revalidatePath("/invoices");
   redirect("/invoices?success=1");
+}
+
+export async function voidInvoice(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const invoiceId = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const [invoice] = await sql`SELECT id, status, journal_entry_id FROM invoices WHERE id = ${invoiceId}`;
+  if (!invoice) redirect(`/invoices?error=${encodeURIComponent("Invoice not found.")}`);
+  if (!["sent", "partial", "paid"].includes(invoice.status)) {
+    redirect(`/invoices/${invoiceId}?error=${encodeURIComponent("Only a sent, partial, or paid invoice can be voided.")}`);
+  }
+
+  const [activePayment] = await sql`
+    SELECT id FROM payments WHERE applied_to_type = 'invoice' AND applied_to_id = ${invoiceId} AND voided_at IS NULL
+  `;
+  const [activeCreditNote] = await sql`
+    SELECT id FROM credit_notes WHERE invoice_id = ${invoiceId} AND voided_at IS NULL
+  `;
+  if (activePayment || activeCreditNote) {
+    redirect(
+      `/invoices/${invoiceId}?error=${encodeURIComponent("Void all payments and credit notes on this invoice first.")}`
+    );
+  }
+
+  let error: string | null = null;
+  try {
+    await voidJournalEntry({
+      originalEntryId: invoice.journal_entry_id,
+      reverseDescriptionPrefix: "Void invoice",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE invoices SET status = 'void' WHERE id = ${invoiceId}`;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "void",
+      entityType: "invoice",
+      entityId: invoiceId,
+      details: { reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not void invoice.";
+  }
+
+  if (error) redirect(`/invoices/${invoiceId}?error=${encodeURIComponent(error)}`);
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  redirect(`/invoices/${invoiceId}?success=1`);
 }

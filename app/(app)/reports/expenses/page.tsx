@@ -28,7 +28,7 @@ export default async function ExpenseReportPage({
     FROM expenses e
     JOIN accounts cat ON cat.id = e.category_account_id
     LEFT JOIN vendors v ON v.id = e.vendor_id
-    WHERE e.expense_date BETWEEN ${start} AND ${end}
+    WHERE e.expense_date BETWEEN ${start} AND ${end} AND e.voided_at IS NULL
     ORDER BY cat.code, e.expense_date
   `;
 

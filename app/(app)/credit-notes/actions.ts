@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { requirePermission } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { postJournalEntry } from "@/lib/journal";
+import { voidJournalEntry } from "@/lib/voidTransaction";
 import { getAccountsReceivableAccount, getSalesReturnsAccount } from "@/lib/controlAccounts";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -98,4 +99,53 @@ export async function issueCreditNote(formData: FormData) {
   revalidatePath("/invoices");
   revalidatePath("/credit-notes");
   redirect(`/invoices/${invoiceId}?success=1`);
+}
+
+export async function voidCreditNote(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const creditNoteId = String(formData.get("creditNoteId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const [creditNote] = await sql`
+    SELECT id, invoice_id, journal_entry_id, voided_at FROM credit_notes WHERE id = ${creditNoteId}
+  `;
+  if (!creditNote) redirect(`/credit-notes?error=${encodeURIComponent("Credit note not found.")}`);
+  if (creditNote.voided_at) redirect(`/credit-notes?error=${encodeURIComponent("This credit note is already voided.")}`);
+
+  let error: string | null = null;
+  try {
+    await voidJournalEntry({
+      originalEntryId: creditNote.journal_entry_id,
+      reverseDescriptionPrefix: "Void credit note",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE credit_notes SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${creditNoteId}`;
+
+        const balance = await getInvoiceBalance(creditNote.invoice_id, tx);
+        const newStatus =
+          balance.paid === 0 && balance.creditedToAR === 0
+            ? "sent"
+            : balance.remainingOwed <= 0.001
+              ? "paid"
+              : "partial";
+        await tx`UPDATE invoices SET status = ${newStatus} WHERE id = ${creditNote.invoice_id} AND status != 'void'`;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "void",
+      entityType: "credit_note",
+      entityId: creditNoteId,
+      details: { reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not void credit note.";
+  }
+
+  if (error) redirect(`/credit-notes?error=${encodeURIComponent(error)}`);
+  revalidatePath("/credit-notes");
+  revalidatePath(`/invoices/${creditNote.invoice_id}`);
+  revalidatePath("/invoices");
+  redirect("/credit-notes?success=1");
 }

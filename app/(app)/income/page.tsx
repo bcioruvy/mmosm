@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
-import { createIncome } from "./actions";
+import { createIncome, voidIncome } from "./actions";
 
 export default async function IncomePage({
   searchParams,
@@ -16,10 +16,11 @@ export default async function IncomePage({
   if (!session?.user || !permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS)) {
     redirect("/");
   }
+  const canVoid = permissions.includes(PERMISSIONS.VOID_TRANSACTIONS);
 
   const [income, categoryAccounts, cashAccounts] = await Promise.all([
     sql`
-      SELECT i.id, i.income_date, i.amount, i.source, i.notes,
+      SELECT i.id, i.income_date, i.amount, i.source, i.notes, i.voided_at,
         cat.code AS category_code, cat.name AS category_name,
         pay.code AS payment_code, pay.name AS payment_name
       FROM income i
@@ -32,13 +33,13 @@ export default async function IncomePage({
   ]);
 
   return (
-    <main style={{ maxWidth: 1000, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 1100, margin: "40px auto", padding: 24 }}>
       <p>
         <a href="/">&larr; Home</a>
       </p>
       <h1>Income</h1>
       {searchParams.error && <p style={{ color: "#b00020" }}>{searchParams.error}</p>}
-      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Income saved.</p>}
+      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Done.</p>}
 
       {cashAccounts.length === 0 && (
         <p style={{ color: "#b00020" }}>
@@ -56,11 +57,12 @@ export default async function IncomePage({
             <th>Amount</th>
             <th>Received into</th>
             <th>Notes</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {income.map((i: any) => (
-            <tr key={i.id} style={{ borderBottom: "1px solid #eee" }}>
+            <tr key={i.id} style={{ borderBottom: "1px solid #eee", opacity: i.voided_at ? 0.5 : 1 }}>
               <td>{new Date(i.income_date).toLocaleDateString()}</td>
               <td>
                 {i.category_code} — {i.category_name}
@@ -68,9 +70,18 @@ export default async function IncomePage({
               <td>{i.source ?? ""}</td>
               <td>{formatCurrency(Number(i.amount))}</td>
               <td>
-                {i.payment_code} — {i.payment_name}
+                {i.voided_at ? "Voided" : `${i.payment_code} — ${i.payment_name}`}
               </td>
               <td>{i.notes ?? ""}</td>
+              <td>
+                {!i.voided_at && canVoid && (
+                  <form action={voidIncome} style={{ display: "flex", gap: 4 }}>
+                    <input type="hidden" name="incomeId" value={i.id} />
+                    <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                    <button type="submit">Void</button>
+                  </form>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

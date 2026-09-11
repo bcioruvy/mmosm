@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { requirePermission } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { postJournalEntry } from "@/lib/journal";
+import { voidJournalEntry } from "@/lib/voidTransaction";
 import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -68,6 +69,42 @@ export async function createIncome(formData: FormData) {
     });
   } catch (err: any) {
     error = err?.message || "Could not save income.";
+  }
+
+  if (error) redirect(`/income?error=${encodeURIComponent(error)}`);
+  revalidatePath("/income");
+  redirect("/income?success=1");
+}
+
+export async function voidIncome(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const incomeId = String(formData.get("incomeId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const [income] = await sql`SELECT id, journal_entry_id, voided_at FROM income WHERE id = ${incomeId}`;
+  if (!income) redirect(`/income?error=${encodeURIComponent("Income entry not found.")}`);
+  if (income.voided_at) redirect(`/income?error=${encodeURIComponent("This income entry is already voided.")}`);
+
+  let error: string | null = null;
+  try {
+    await voidJournalEntry({
+      originalEntryId: income.journal_entry_id,
+      reverseDescriptionPrefix: "Void income",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE income SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${incomeId}`;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "void",
+      entityType: "income",
+      entityId: incomeId,
+      details: { reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not void income entry.";
   }
 
   if (error) redirect(`/income?error=${encodeURIComponent(error)}`);

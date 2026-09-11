@@ -50,14 +50,14 @@ export default async function InvoicesPage({
         </thead>
         <tbody>
           {invoices.map((inv: any) => (
-            <tr key={inv.id} style={{ borderBottom: "1px solid #eee" }}>
+            <tr key={inv.id} style={{ borderBottom: "1px solid #eee", opacity: inv.status === "void" ? 0.5 : 1 }}>
               <td>
                 <a href={`/invoices/${inv.id}`}>{inv.invoice_number}</a>
               </td>
               <td>{inv.customer_name}</td>
               <td>{new Date(inv.invoice_date).toLocaleDateString()}</td>
               <td>{new Date(inv.due_date).toLocaleDateString()}</td>
-              <td>{inv.status}</td>
+              <td>{inv.status === "void" ? "Voided" : inv.status}</td>
               <td>{formatCurrency(Number(inv.total))}</td>
             </tr>
           ))}

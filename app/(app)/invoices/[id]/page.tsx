@@ -5,9 +5,9 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
-import { sendInvoice, deleteInvoiceDraft } from "../actions";
-import { recordInvoicePayment } from "../../payments/actions";
-import { issueCreditNote } from "../../credit-notes/actions";
+import { sendInvoice, deleteInvoiceDraft, voidInvoice } from "../actions";
+import { recordInvoicePayment, voidPayment } from "../../payments/actions";
+import { issueCreditNote, voidCreditNote } from "../../credit-notes/actions";
 
 export default async function InvoiceDetailPage({
   params,
@@ -21,6 +21,7 @@ export default async function InvoiceDetailPage({
   if (!session?.user || !permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS)) {
     redirect("/");
   }
+  const canVoid = permissions.includes(PERMISSIONS.VOID_TRANSACTIONS);
 
   const [invoice] = await sql`
     SELECT i.id, i.invoice_number, i.invoice_date, i.due_date, i.status, i.notes,
@@ -43,13 +44,13 @@ export default async function InvoiceDetailPage({
 
   const [payments, creditNotes, balance, cashAccounts] = await Promise.all([
     sql`
-      SELECT p.id, p.payment_date, p.amount, acc.code AS account_code, acc.name AS account_name
+      SELECT p.id, p.payment_date, p.amount, p.voided_at, acc.code AS account_code, acc.name AS account_name
       FROM payments p JOIN accounts acc ON acc.id = p.account_id
       WHERE p.applied_to_type = 'invoice' AND p.applied_to_id = ${params.id}
       ORDER BY p.payment_date DESC, p.id DESC
     `,
     sql`
-      SELECT cn.id, cn.credit_note_number, cn.credit_date, cn.amount, cn.reason,
+      SELECT cn.id, cn.credit_note_number, cn.credit_date, cn.amount, cn.reason, cn.voided_at,
         ra.code AS refund_account_code, ra.name AS refund_account_name
       FROM credit_notes cn
       LEFT JOIN accounts ra ON ra.id = cn.refund_account_id
@@ -59,6 +60,10 @@ export default async function InvoiceDetailPage({
     isPostedAtAll ? getInvoiceBalance(params.id) : Promise.resolve(null),
     isPostedAtAll ? getCashOrBankAccounts() : Promise.resolve([]),
   ]);
+
+  const hasActiveChildren =
+    payments.some((p: any) => !p.voided_at) || creditNotes.some((cn: any) => !cn.voided_at);
+  const canVoidInvoice = canVoid && isPostedAtAll && !hasActiveChildren;
 
   return (
     <main style={{ maxWidth: 800, margin: "40px auto", padding: 24 }}>
@@ -139,16 +144,30 @@ export default async function InvoiceDetailPage({
                 <th>Date</th>
                 <th>Account</th>
                 <th>Amount</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {payments.map((p: any) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid #eee" }}>
+                <tr key={p.id} style={{ borderBottom: "1px solid #eee", opacity: p.voided_at ? 0.5 : 1 }}>
                   <td>{new Date(p.payment_date).toLocaleDateString()}</td>
                   <td>
                     {p.account_code} — {p.account_name}
                   </td>
                   <td>{formatCurrency(Number(p.amount))}</td>
+                  <td>
+                    {p.voided_at ? (
+                      "Voided"
+                    ) : (
+                      canVoid && (
+                        <form action={voidPayment} style={{ display: "flex", gap: 4 }}>
+                          <input type="hidden" name="paymentId" value={p.id} />
+                          <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                          <button type="submit">Void</button>
+                        </form>
+                      )
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -204,11 +223,12 @@ export default async function InvoiceDetailPage({
                   <th>Amount</th>
                   <th>Type</th>
                   <th>Reason</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {creditNotes.map((cn: any) => (
-                  <tr key={cn.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <tr key={cn.id} style={{ borderBottom: "1px solid #eee", opacity: cn.voided_at ? 0.5 : 1 }}>
                     <td>{cn.credit_note_number}</td>
                     <td>{new Date(cn.credit_date).toLocaleDateString()}</td>
                     <td>{formatCurrency(Number(cn.amount))}</td>
@@ -218,6 +238,19 @@ export default async function InvoiceDetailPage({
                         : "Applied to balance owed"}
                     </td>
                     <td>{cn.reason ?? ""}</td>
+                    <td>
+                      {cn.voided_at ? (
+                        "Voided"
+                      ) : (
+                        canVoid && (
+                          <form action={voidCreditNote} style={{ display: "flex", gap: 4 }}>
+                            <input type="hidden" name="creditNoteId" value={cn.id} />
+                            <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                            <button type="submit">Void</button>
+                          </form>
+                        )
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -247,6 +280,19 @@ export default async function InvoiceDetailPage({
               <input name="reason" placeholder="Reason" />
               <button type="submit">Issue credit note</button>
             </form>
+          )}
+
+          {canVoidInvoice && (
+            <form action={voidInvoice} style={{ display: "flex", gap: 8, marginTop: 32 }}>
+              <input type="hidden" name="id" value={invoice.id} />
+              <input name="reason" placeholder="Reason (optional)" />
+              <button type="submit">Void invoice</button>
+            </form>
+          )}
+          {canVoid && isPostedAtAll && hasActiveChildren && (
+            <p style={{ color: "var(--color-text-muted)", marginTop: 16 }}>
+              This invoice can't be voided while it has active payments or credit notes — void those first.
+            </p>
           )}
         </>
       )}

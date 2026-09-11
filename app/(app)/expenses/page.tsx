@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
-import { createExpense } from "./actions";
+import { createExpense, voidExpense } from "./actions";
 import { payExpense } from "../payments/actions";
 
 export default async function ExpensesPage({
@@ -17,10 +17,11 @@ export default async function ExpensesPage({
   if (!session?.user || !permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS)) {
     redirect("/");
   }
+  const canVoid = permissions.includes(PERMISSIONS.VOID_TRANSACTIONS);
 
   const [expenses, categoryAccounts, vendors, cashAccounts] = await Promise.all([
     sql`
-      SELECT e.id, e.expense_date, e.amount, e.payment_status, e.notes,
+      SELECT e.id, e.expense_date, e.amount, e.payment_status, e.notes, e.voided_at,
         cat.code AS category_code, cat.name AS category_name,
         v.name AS vendor_name,
         pay.code AS payment_code, pay.name AS payment_name
@@ -36,13 +37,13 @@ export default async function ExpensesPage({
   ]);
 
   return (
-    <main style={{ maxWidth: 1000, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 1100, margin: "40px auto", padding: 24 }}>
       <p>
         <a href="/">&larr; Home</a>
       </p>
       <h1>Expenses</h1>
       {searchParams.error && <p style={{ color: "#b00020" }}>{searchParams.error}</p>}
-      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Expense saved.</p>}
+      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Done.</p>}
 
       {cashAccounts.length === 0 && (
         <p style={{ color: "#b00020" }}>
@@ -66,7 +67,7 @@ export default async function ExpensesPage({
         </thead>
         <tbody>
           {expenses.map((e: any) => (
-            <tr key={e.id} style={{ borderBottom: "1px solid #eee" }}>
+            <tr key={e.id} style={{ borderBottom: "1px solid #eee", opacity: e.voided_at ? 0.5 : 1 }}>
               <td>{new Date(e.expense_date).toLocaleDateString()}</td>
               <td>
                 {e.category_code} — {e.category_name}
@@ -74,12 +75,16 @@ export default async function ExpensesPage({
               <td>{e.vendor_name ?? "—"}</td>
               <td>{formatCurrency(Number(e.amount))}</td>
               <td>
-                {e.payment_status === "paid" ? `Paid (${e.payment_code} ${e.payment_name})` : "Unpaid (bill)"}
+                {e.voided_at
+                  ? "Voided"
+                  : e.payment_status === "paid"
+                    ? `Paid (${e.payment_code} ${e.payment_name})`
+                    : "Unpaid (bill)"}
               </td>
               <td>{e.notes ?? ""}</td>
               <td>
-                {e.payment_status === "unpaid" && cashAccounts.length > 0 && (
-                  <form action={payExpense} style={{ display: "flex", gap: 4 }}>
+                {!e.voided_at && e.payment_status === "unpaid" && cashAccounts.length > 0 && (
+                  <form action={payExpense} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
                     <input type="hidden" name="expenseId" value={e.id} />
                     <input name="paymentDate" type="date" required style={{ width: 130 }} />
                     <select name="accountId" required defaultValue="">
@@ -93,6 +98,13 @@ export default async function ExpensesPage({
                       ))}
                     </select>
                     <button type="submit">Pay</button>
+                  </form>
+                )}
+                {!e.voided_at && canVoid && (
+                  <form action={voidExpense} style={{ display: "flex", gap: 4 }}>
+                    <input type="hidden" name="expenseId" value={e.id} />
+                    <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                    <button type="submit">Void</button>
                   </form>
                 )}
               </td>

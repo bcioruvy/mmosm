@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { requirePermission } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { postJournalEntry } from "@/lib/journal";
+import { voidJournalEntry } from "@/lib/voidTransaction";
 import { getAccountsReceivableAccount, getAccountsPayableAccount } from "@/lib/controlAccounts";
 import { getInvoiceBalance } from "@/lib/invoiceBalance";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -147,4 +148,59 @@ export async function recordInvoicePayment(formData: FormData) {
   revalidatePath("/invoices");
   revalidatePath("/payments");
   redirect(`/invoices/${invoiceId}?success=1`);
+}
+
+export async function voidPayment(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const paymentId = String(formData.get("paymentId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const [payment] = await sql`
+    SELECT id, applied_to_type, applied_to_id, journal_entry_id, voided_at FROM payments WHERE id = ${paymentId}
+  `;
+  if (!payment) redirect(`/payments?error=${encodeURIComponent("Payment not found.")}`);
+  if (payment.voided_at) redirect(`/payments?error=${encodeURIComponent("This payment is already voided.")}`);
+
+  let error: string | null = null;
+  try {
+    await voidJournalEntry({
+      originalEntryId: payment.journal_entry_id,
+      reverseDescriptionPrefix: "Void payment",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE payments SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${paymentId}`;
+
+        if (payment.applied_to_type === "expense") {
+          await tx`
+            UPDATE expenses SET payment_status = 'unpaid', payment_account_id = NULL WHERE id = ${payment.applied_to_id}
+          `;
+        } else if (payment.applied_to_type === "invoice") {
+          const balance = await getInvoiceBalance(payment.applied_to_id, tx);
+          const newStatus =
+            balance.paid === 0 && balance.creditedToAR === 0
+              ? "sent"
+              : balance.remainingOwed <= 0.001
+                ? "paid"
+                : "partial";
+          await tx`UPDATE invoices SET status = ${newStatus} WHERE id = ${payment.applied_to_id} AND status != 'void'`;
+        }
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "void",
+      entityType: "payment",
+      entityId: paymentId,
+      details: { reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not void payment.";
+  }
+
+  if (error) redirect(`/payments?error=${encodeURIComponent(error)}`);
+  revalidatePath("/payments");
+  revalidatePath("/expenses");
+  revalidatePath("/invoices");
+  redirect("/payments?success=1");
 }

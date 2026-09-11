@@ -30,6 +30,19 @@ all lines must be inserted in one DB transaction (see `lib/journal.ts`).
 (not `bigint`) — new tables that reference them use `integer` FK columns
 to match.
 
+`journal_entries.voided_at`/`voided_by` are informational only — they
+mark that an entry was later reversed (and stop it being voided twice)
+but are never used to filter journal-based reports (Trial Balance, P&L,
+Balance Sheet, General Ledger). Voiding posts a new offsetting entry
+rather than editing/deleting the original, so both entries must stay
+counted for reports to stay period-accurate and keep balancing — see
+`lib/reports/journalFilters.ts` and `lib/voidTransaction.ts`. This is
+different from `expenses`/`income`/`payments`/`credit_notes`, whose own
+`voided_at` *is* used to filter the operational reports that read those
+tables directly (AR/AP Aging, Sales/Expense/Income reports) — those
+have no complementary reversal row of their own, so excluding a voided
+one there is the correct, safe behavior rather than the same trap.
+
 Recommended next step: run a schema-dump query in Neon's SQL Editor (or
 `pg_dump --schema-only` if you ever get shell access to the DB) and commit
 the result as `db/schema.sql`, so future changes can diff against a real
@@ -93,3 +106,12 @@ baseline instead of against memory.
   change — `invoices.invoice_number` is a fixed string written once at
   creation, never recomputed from this table, so existing invoice
   numbers are untouched by design.
+- `011_void_transactions.sql` — adds `voided_at`/`voided_by` to
+  expenses, income, payments, and credit_notes (invoices reuse their
+  existing `status = 'void'`), and a new `void_transactions`
+  permission granted only to owner_admin and accountant_staff —
+  deliberately not family_member, and deliberately separate from
+  `manage_transactions` since voiding is more sensitive than creating.
+  Voiding an invoice or an on-credit expense that was later paid off
+  is blocked until its payments/credit notes are voided first — see
+  `lib/voidTransaction.ts` and each entity's `void*` action for why.

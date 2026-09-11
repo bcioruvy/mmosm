@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { requirePermission } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { postJournalEntry } from "@/lib/journal";
+import { voidJournalEntry } from "@/lib/voidTransaction";
 import { getAccountsPayableAccount } from "@/lib/controlAccounts";
 import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
@@ -89,6 +90,53 @@ export async function createExpense(formData: FormData) {
     });
   } catch (err: any) {
     error = err?.message || "Could not save expense.";
+  }
+
+  if (error) redirect(`/expenses?error=${encodeURIComponent(error)}`);
+  revalidatePath("/expenses");
+  redirect("/expenses?success=1");
+}
+
+export async function voidExpense(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const expenseId = String(formData.get("expenseId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const [expense] = await sql`
+    SELECT id, journal_entry_id, voided_at FROM expenses WHERE id = ${expenseId}
+  `;
+  if (!expense) redirect(`/expenses?error=${encodeURIComponent("Expense not found.")}`);
+  if (expense.voided_at) redirect(`/expenses?error=${encodeURIComponent("This expense is already voided.")}`);
+
+  const [activePayment] = await sql`
+    SELECT id FROM payments WHERE applied_to_type = 'expense' AND applied_to_id = ${expenseId} AND voided_at IS NULL
+  `;
+  if (activePayment) {
+    redirect(
+      `/expenses?error=${encodeURIComponent("This expense was paid via a separate payment — void the payment first, then void the expense.")}`
+    );
+  }
+
+  let error: string | null = null;
+  try {
+    await voidJournalEntry({
+      originalEntryId: expense.journal_entry_id,
+      reverseDescriptionPrefix: "Void expense",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE expenses SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${expenseId}`;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "void",
+      entityType: "expense",
+      entityId: expenseId,
+      details: { reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not void expense.";
   }
 
   if (error) redirect(`/expenses?error=${encodeURIComponent(error)}`);

@@ -26,7 +26,7 @@ export default async function IncomeReportPage({
       cat.code AS category_code, cat.name AS category_name
     FROM income i
     JOIN accounts cat ON cat.id = i.category_account_id
-    WHERE i.income_date BETWEEN ${start} AND ${end}
+    WHERE i.income_date BETWEEN ${start} AND ${end} AND i.voided_at IS NULL
     ORDER BY cat.code, i.income_date
   `;
 

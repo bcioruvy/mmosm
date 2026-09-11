@@ -3,16 +3,22 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
+import { voidPayment } from "./actions";
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: { error?: string; success?: string };
+}) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
   if (!session?.user || !permissions.includes(PERMISSIONS.MANAGE_TRANSACTIONS)) {
     redirect("/");
   }
+  const canVoid = permissions.includes(PERMISSIONS.VOID_TRANSACTIONS);
 
   const payments = await sql`
-    SELECT p.id, p.direction, p.payment_date, p.amount, p.notes,
+    SELECT p.id, p.direction, p.payment_date, p.amount, p.notes, p.voided_at,
       acc.code AS account_code, acc.name AS account_name,
       p.applied_to_type,
       inv.invoice_number,
@@ -28,11 +34,13 @@ export default async function PaymentsPage() {
   `;
 
   return (
-    <main style={{ maxWidth: 1000, margin: "40px auto", padding: 24 }}>
+    <main style={{ maxWidth: 1100, margin: "40px auto", padding: 24 }}>
       <p>
         <a href="/">&larr; Home</a>
       </p>
       <h1>Payments</h1>
+      {searchParams.error && <p style={{ color: "#b00020" }}>{searchParams.error}</p>}
+      {searchParams.success && <p style={{ color: "#1b7a3d" }}>Done.</p>}
       <p>
         Record a payment from an unpaid expense's row on <a href="/expenses">Expenses</a>, or from an
         open invoice's detail page.
@@ -46,11 +54,13 @@ export default async function PaymentsPage() {
             <th>Applied to</th>
             <th>Account</th>
             <th>Amount</th>
+            <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {payments.map((p: any) => (
-            <tr key={p.id} style={{ borderBottom: "1px solid #eee" }}>
+            <tr key={p.id} style={{ borderBottom: "1px solid #eee", opacity: p.voided_at ? 0.5 : 1 }}>
               <td>{new Date(p.payment_date).toLocaleDateString()}</td>
               <td>{p.direction === "in" ? "In" : "Out"}</td>
               <td>
@@ -62,6 +72,16 @@ export default async function PaymentsPage() {
                 {p.account_code} — {p.account_name}
               </td>
               <td>{formatCurrency(Number(p.amount))}</td>
+              <td>{p.voided_at ? "Voided" : "Active"}</td>
+              <td>
+                {!p.voided_at && canVoid && (
+                  <form action={voidPayment} style={{ display: "flex", gap: 4 }}>
+                    <input type="hidden" name="paymentId" value={p.id} />
+                    <input name="reason" placeholder="Reason (optional)" style={{ width: 110 }} />
+                    <button type="submit">Void</button>
+                  </form>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

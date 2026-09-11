@@ -27,7 +27,7 @@ export default async function SalesReportPage({
     FROM invoices i
     JOIN customers c ON c.id = i.customer_id
     LEFT JOIN (SELECT invoice_id, SUM(line_total) AS total FROM invoice_lines GROUP BY invoice_id) l ON l.invoice_id = i.id
-    WHERE i.status != 'draft' AND i.invoice_date BETWEEN ${start} AND ${end}
+    WHERE i.status NOT IN ('draft', 'void') AND i.invoice_date BETWEEN ${start} AND ${end}
     ORDER BY c.name, i.invoice_date
   `;
 

@@ -76,7 +76,7 @@ export default async function DashboardPage({
     FROM expenses e
     JOIN accounts cat ON cat.id = e.category_account_id
     LEFT JOIN vendors v ON v.id = e.vendor_id
-    WHERE e.payment_status = 'unpaid'
+    WHERE e.payment_status = 'unpaid' AND e.voided_at IS NULL
     ORDER BY COALESCE(e.due_date, e.expense_date)
   `;
   const apTotal = unpaidExpenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
@@ -96,10 +96,9 @@ export default async function DashboardPage({
   );
 
   const recentEntries = await sql`
-    SELECT je.id, je.entry_date, je.description, je.source_type,
+    SELECT je.id, je.entry_date, je.description, je.source_type, je.voided_at,
       (SELECT COALESCE(SUM(debit), 0) FROM journal_lines WHERE entry_id = je.id) AS amount
     FROM journal_entries je
-    WHERE je.voided_at IS NULL
     ORDER BY je.created_at DESC
     LIMIT 15
   `;
@@ -246,9 +245,12 @@ export default async function DashboardPage({
         </thead>
         <tbody>
           {recentEntries.map((entry: any) => (
-            <tr key={entry.id} style={{ borderBottom: "1px solid #eee" }}>
+            <tr key={entry.id} style={{ borderBottom: "1px solid #eee", opacity: entry.voided_at ? 0.5 : 1 }}>
               <td>{new Date(entry.entry_date).toLocaleDateString()}</td>
-              <td>{entry.description}</td>
+              <td>
+                {entry.description}
+                {entry.voided_at ? " (voided)" : ""}
+              </td>
               <td>{entry.source_type}</td>
               <td style={{ textAlign: "right" }}>{formatCurrency(Number(entry.amount))}</td>
             </tr>

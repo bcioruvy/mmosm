@@ -36,10 +36,10 @@ export default async function GeneralLedgerPage({
     `;
 
     const lines = await sql`
-      SELECT jl.id, je.entry_date, je.description, je.source_type, jl.debit, jl.credit
+      SELECT jl.id, je.entry_date, je.description, je.source_type, je.voided_at, jl.debit, jl.credit
       FROM journal_lines jl
       JOIN journal_entries je ON je.id = jl.entry_id
-      WHERE jl.account_id = ${accountId} AND je.voided_at IS NULL AND je.entry_date BETWEEN ${start} AND ${end}
+      WHERE jl.account_id = ${accountId} AND je.entry_date BETWEEN ${start} AND ${end}
       ORDER BY je.entry_date, jl.id
     `;
 
@@ -95,7 +95,10 @@ export default async function GeneralLedgerPage({
             {rows.map((l: any) => (
               <tr key={l.id} style={{ borderBottom: "1px solid #eee" }}>
                 <td>{new Date(l.entry_date).toLocaleDateString()}</td>
-                <td>{l.description}</td>
+                <td>
+                  {l.description}
+                  {l.voided_at ? " (voided)" : ""}
+                </td>
                 <td>{l.source_type}</td>
                 <td style={{ textAlign: "right" }}>{Number(l.debit) ? formatCurrency(Number(l.debit)) : ""}</td>
                 <td style={{ textAlign: "right" }}>{Number(l.credit) ? formatCurrency(Number(l.credit)) : ""}</td>
