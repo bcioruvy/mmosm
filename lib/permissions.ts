@@ -5,6 +5,7 @@ export const PERMISSIONS = {
   MANAGE_VENDORS: "manage_vendors",
   MANAGE_PRODUCTS: "manage_products",
   MANAGE_TRANSACTIONS: "manage_transactions",
+  MANAGE_JOURNAL_ENTRIES: "manage_journal_entries",
   VIEW_REPORTS: "view_reports",
   VIEW_AUDIT_LOG: "view_audit_log",
   MANAGE_SETTINGS: "manage_settings",

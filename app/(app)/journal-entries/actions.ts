@@ -1,0 +1,116 @@
+"use server";
+
+import sql from "@/lib/db";
+import { requirePermission } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
+import { postJournalEntry } from "@/lib/journal";
+import { voidJournalEntry } from "@/lib/voidTransaction";
+import { PERMISSIONS } from "@/lib/permissions";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+type RawLine = { accountId: string; debit: string; credit: string };
+
+export async function createManualJournalEntry(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.MANAGE_JOURNAL_ENTRIES);
+
+  const entryDate = String(formData.get("entryDate") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
+  const linesJson = String(formData.get("linesJson") ?? "[]");
+
+  if (!entryDate || !description) {
+    redirect(`/journal-entries?error=${encodeURIComponent("Date and description are required.")}`);
+  }
+
+  let rawLines: RawLine[] = [];
+  try {
+    rawLines = JSON.parse(linesJson);
+  } catch {
+    redirect(`/journal-entries?error=${encodeURIComponent("Invalid line data.")}`);
+  }
+
+  const lines = rawLines
+    .map((l) => ({
+      accountId: l.accountId,
+      debit: Number(l.debit) || 0,
+      credit: Number(l.credit) || 0,
+    }))
+    .filter((l) => l.accountId && (l.debit > 0 || l.credit > 0));
+
+  if (lines.length < 2) {
+    redirect(`/journal-entries?error=${encodeURIComponent("At least two lines, each with an account and a debit or credit amount, are required.")}`);
+  }
+  if (lines.some((l) => l.debit > 0 && l.credit > 0)) {
+    redirect(`/journal-entries?error=${encodeURIComponent("A line can't have both a debit and a credit — split it into two lines.")}`);
+  }
+
+  const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
+  const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);
+  if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+    redirect(
+      `/journal-entries?error=${encodeURIComponent(`Entry is not balanced: debits ${totalDebit.toFixed(2)}, credits ${totalCredit.toFixed(2)}.`)}`
+    );
+  }
+
+  let error: string | null = null;
+  let entryId: number | undefined;
+  try {
+    const result = await postJournalEntry({
+      entryDate,
+      description,
+      sourceType: "manual",
+      createdBy: session.user.id,
+      lines: lines.map((l) => ({ accountId: l.accountId, debit: l.debit || undefined, credit: l.credit || undefined })),
+      linkSource: async () => null,
+    });
+    entryId = result.entryId;
+  } catch (err: any) {
+    error = err?.message || "Could not save journal entry.";
+  }
+
+  if (error) redirect(`/journal-entries?error=${encodeURIComponent(error)}`);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "create",
+    entityType: "manual_journal_entry",
+    entityId: entryId!,
+    details: { entryDate, description, lines },
+  });
+  revalidatePath("/journal-entries");
+  redirect("/journal-entries?success=1");
+}
+
+export async function voidManualJournalEntry(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const entryId = String(formData.get("entryId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const [entry] = await sql`SELECT id, voided_at FROM journal_entries WHERE id = ${entryId} AND source_type = 'manual'`;
+  if (!entry) redirect(`/journal-entries?error=${encodeURIComponent("Journal entry not found.")}`);
+  if (entry.voided_at) redirect(`/journal-entries?error=${encodeURIComponent("This entry is already voided.")}`);
+
+  let error: string | null = null;
+  try {
+    await voidJournalEntry({
+      originalEntryId: entry.id,
+      reverseDescriptionPrefix: "Void manual journal entry",
+      createdBy: session.user.id,
+      updateSource: async () => {},
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "void",
+      entityType: "manual_journal_entry",
+      entityId: entryId,
+      details: { reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not void journal entry.";
+  }
+
+  if (error) redirect(`/journal-entries?error=${encodeURIComponent(error)}`);
+  revalidatePath("/journal-entries");
+  redirect("/journal-entries?success=1");
+}

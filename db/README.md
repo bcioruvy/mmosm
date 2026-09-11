@@ -158,6 +158,25 @@ baseline instead of against memory.
   try/catch, outside the page's main `Promise.all`, so a not-yet-
   migrated `products` table can't 500 the Invoices page this ships
   alongside — the picker just doesn't appear until the migration runs.
+- `014_manual_journal_entries.sql` — no new table. A manual journal
+  entry (owner contributions/draws, corrections — anything none of the
+  structured flows cover) posts with `source_type = 'manual'` and
+  `source_id` left NULL; `journal_entries` itself is the record, since
+  there's no business object beyond what it already stores. Voiding
+  reuses `lib/voidTransaction.ts` unchanged — `originalEntryId` is just
+  the entry's own id, `updateSource` is a no-op. New
+  `manage_journal_entries` permission, owner_admin only (agreed
+  2026-09-11) — this bypasses every structural guardrail the built-in
+  flows provide: no account-type restriction on which accounts can be
+  posted to, no automatic AR/AP handling. Voiding a manual entry reuses
+  the existing `void_transactions` permission rather than a new one —
+  owner_admin already has both, and accountant_staff (who has
+  void_transactions but not manage_journal_entries) can't reach the
+  feature at all, so there's no gap. No report changes needed: Trial
+  Balance, P&L, Balance Sheet, General Ledger, and the Dashboard's
+  Recent Transactions all read `journal_lines`/`journal_entries`
+  directly with no `source_type` filter, so a manual entry's effect on
+  account balances shows up everywhere immediately.
 
 No new migration for this one, but worth documenting: **range-based
 reports have no opening balance, so a void whose original transaction

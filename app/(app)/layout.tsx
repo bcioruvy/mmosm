@@ -15,6 +15,7 @@ const NAV_ITEMS: { href: string; label: string; permission?: string }[] = [
   { href: "/invoices", label: "Invoices", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   { href: "/payments", label: "Payments", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   { href: "/credit-notes", label: "Credit Notes", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
+  { href: "/journal-entries", label: "Journal Entries", permission: PERMISSIONS.MANAGE_JOURNAL_ENTRIES },
   { href: "/reports", label: "Reports", permission: PERMISSIONS.VIEW_REPORTS },
   { href: "/audit-log", label: "Audit Trail", permission: PERMISSIONS.VIEW_AUDIT_LOG },
   { href: "/users", label: "Users", permission: PERMISSIONS.MANAGE_USERS },
