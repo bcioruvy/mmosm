@@ -34,8 +34,14 @@ export default function Disclosure({
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="text-xs"
-        style={{ background: "none", border: "none", textDecoration: "underline", cursor: "pointer" }}
+        className="text-xs text-muted"
+        style={{
+          background: "none",
+          border: "none",
+          textDecoration: "underline",
+          cursor: "pointer",
+          color: "var(--color-text-muted)",
+        }}
       >
         Cancel
       </button>

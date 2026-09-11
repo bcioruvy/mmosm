@@ -29,11 +29,11 @@ export default function InlineEditField({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1.5 text-left text-sm"
-        style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+        className="inline-flex items-center gap-1.5 text-left text-sm text-muted"
+        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--color-text-muted)" }}
       >
-        <span className={value ? "" : "text-muted"}>{value || `No ${placeholder.toLowerCase()}`}</span>
-        <Pencil className="h-3 w-3 text-muted" />
+        <span>{value || `No ${placeholder.toLowerCase()}`}</span>
+        <Pencil className="h-3 w-3" />
       </button>
     );
   }
@@ -50,8 +50,14 @@ export default function InlineEditField({
       <button
         type="button"
         onClick={() => setEditing(false)}
-        className="text-xs"
-        style={{ background: "none", border: "none", textDecoration: "underline", cursor: "pointer" }}
+        className="text-xs text-muted"
+        style={{
+          background: "none",
+          border: "none",
+          textDecoration: "underline",
+          cursor: "pointer",
+          color: "var(--color-text-muted)",
+        }}
       >
         Cancel
       </button>
