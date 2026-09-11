@@ -134,6 +134,15 @@ baseline instead of against memory.
   Voiding an invoice or an on-credit expense that was later paid off
   is blocked until its payments/credit notes are voided first — see
   `lib/voidTransaction.ts` and each entity's `void*` action for why.
+- `012_wipe_test_data.sql` — one-time data wipe, not a schema change
+  (requested 2026-09-11 to clear test data before real use). Deletes
+  every row from audit_log, journal_lines, journal_entries,
+  credit_notes, payments, invoice_lines, invoices, expenses, income,
+  customers, and vendors, in FK-safe order, and resets every affected
+  id sequence plus invoice_number_seq/credit_note_number_seq. Does not
+  touch accounts, users, roles, or business_settings — see the file's
+  own header for the full FK-order reasoning. Not meant to be run
+  again; harmless but pointless if it is.
 
 No new migration for this one, but worth documenting: **range-based
 reports have no opening balance, so a void whose original transaction
