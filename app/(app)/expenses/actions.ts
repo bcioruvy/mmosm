@@ -13,7 +13,11 @@ import { redirect } from "next/navigation";
 
 const ON_CREDIT = "on_credit";
 
-/** Shared by voidExpense and reclassifyExpense — both are blocked by the same condition. */
+function toISODate(d: string | Date) {
+  return new Date(d).toISOString().slice(0, 10);
+}
+
+/** Shared by voidExpense, reclassifyExpense, and correctExpenseDate — all three are blocked by the same condition. */
 async function hasActivePayment(expenseId: string) {
   const [row] = await sql`
     SELECT id FROM payments WHERE applied_to_type = 'expense' AND applied_to_id = ${expenseId} AND voided_at IS NULL
@@ -178,6 +182,107 @@ export async function voidExpense(formData: FormData) {
     });
   } catch (err: any) {
     error = err?.message || "Could not void expense.";
+  }
+
+  if (error) redirect(`/expenses?error=${encodeURIComponent(error)}`);
+  revalidatePath("/expenses");
+  redirect("/expenses?success=1");
+}
+
+/**
+ * Fixes an expense posted with the wrong date without editing it in
+ * place — same reasoning as reclassifyExpense (a date determines which
+ * reporting period a transaction lands in, so it goes through void +
+ * repost like any other reporting-consequential change). Structurally
+ * the same as reclassifyExpense — void the original, insert a new
+ * expenses row + journal entry in the same transaction — except the
+ * account never changes here, so instead of recomputing the lines this
+ * just replays the original journal_lines verbatim and only the date
+ * changes. The new entry's source_type is 'date_correction' (a
+ * distinct value, same reasoning as reclassify's 'reclassify') so it
+ * reads as a correction rather than an ordinary new expense on
+ * Dashboard/General Ledger, where source_type is shown as-is.
+ */
+export async function correctExpenseDate(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const expenseId = String(formData.get("expenseId") ?? "");
+  const newDate = String(formData.get("newDate") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!expenseId || !newDate) {
+    redirect(`/expenses?error=${encodeURIComponent("Choose a new date.")}`);
+  }
+
+  const [expense] = await sql`
+    SELECT id, expense_date, vendor_id, category_account_id, amount, payment_status, payment_account_id,
+      due_date, notes, journal_entry_id, voided_at
+    FROM expenses WHERE id = ${expenseId}
+  `;
+  if (!expense) redirect(`/expenses?error=${encodeURIComponent("Expense not found.")}`);
+  if (expense.voided_at) redirect(`/expenses?error=${encodeURIComponent("This expense is already voided.")}`);
+
+  const oldDate = toISODate(expense.expense_date);
+  if (oldDate === newDate) {
+    redirect(`/expenses?error=${encodeURIComponent("Choose a different date to correct to.")}`);
+  }
+
+  if (await hasActivePayment(expenseId)) {
+    redirect(
+      `/expenses?error=${encodeURIComponent("This expense was paid via a separate payment — void the payment first, then correct the date.")}`
+    );
+  }
+
+  const originalLines = await sql`SELECT account_id, debit, credit FROM journal_lines WHERE entry_id = ${expense.journal_entry_id}`;
+  const [originalEntry] = await sql`SELECT description FROM journal_entries WHERE id = ${expense.journal_entry_id}`;
+
+  let error: string | null = null;
+  let newExpenseId: number | undefined;
+  try {
+    await voidJournalEntry({
+      originalEntryId: expense.journal_entry_id,
+      reverseDescriptionPrefix: "Correct expense date",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE expenses SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${expenseId}`;
+
+        const [newEntry] = await tx`
+          INSERT INTO journal_entries (entry_date, description, source_type, source_id, created_by)
+          VALUES (${newDate}, ${originalEntry.description}, 'date_correction', NULL, ${session.user.id})
+          RETURNING id
+        `;
+        for (const line of originalLines) {
+          await tx`
+            INSERT INTO journal_lines (entry_id, account_id, debit, credit)
+            VALUES (${newEntry.id}, ${line.account_id}, ${line.debit}, ${line.credit})
+          `;
+        }
+
+        const [newExpense] = await tx`
+          INSERT INTO expenses (
+            expense_date, vendor_id, category_account_id, amount,
+            payment_status, payment_account_id, due_date, notes, journal_entry_id, created_by
+          )
+          VALUES (
+            ${newDate}, ${expense.vendor_id}, ${expense.category_account_id}, ${expense.amount},
+            ${expense.payment_status}, ${expense.payment_account_id}, ${expense.due_date}, ${expense.notes}, ${newEntry.id}, ${session.user.id}
+          )
+          RETURNING id
+        `;
+        newExpenseId = newExpense.id;
+
+        await tx`UPDATE journal_entries SET source_id = ${newExpense.id} WHERE id = ${newEntry.id}`;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "correct_date",
+      entityType: "expense",
+      entityId: expenseId,
+      details: { oldDate, newDate, newExpenseId, reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not correct the expense's date.";
   }
 
   if (error) redirect(`/expenses?error=${encodeURIComponent(error)}`);

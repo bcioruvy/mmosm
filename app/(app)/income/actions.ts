@@ -10,6 +10,10 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+function toISODate(d: string | Date) {
+  return new Date(d).toISOString().slice(0, 10);
+}
+
 export async function createIncome(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.MANAGE_TRANSACTIONS);
 
@@ -141,6 +145,99 @@ export async function voidIncome(formData: FormData) {
     });
   } catch (err: any) {
     error = err?.message || "Could not void income entry.";
+  }
+
+  if (error) redirect(`/income?error=${encodeURIComponent(error)}`);
+  revalidatePath("/income");
+  redirect("/income?success=1");
+}
+
+/**
+ * Fixes an income entry posted with the wrong date without editing it
+ * in place — same reasoning as reclassifyIncome/correctExpenseDate (a
+ * date determines the reporting period, so it goes through void +
+ * repost). Structurally the same as reclassifyIncome — void the
+ * original, insert a new income row + journal entry in the same
+ * transaction — except the account never changes here, so this
+ * replays the original journal_lines verbatim rather than recomputing
+ * them, and only the date changes. Like reclassifyIncome, no
+ * active-payment guard (income never touches the payments table).
+ * source_type is 'date_correction' — a distinct value, same reasoning
+ * as reclassify's 'reclassify' — so it reads as a correction rather
+ * than an ordinary new income entry on Dashboard/General Ledger, where
+ * source_type is shown as-is.
+ */
+export async function correctIncomeDate(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const incomeId = String(formData.get("incomeId") ?? "");
+  const newDate = String(formData.get("newDate") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!incomeId || !newDate) {
+    redirect(`/income?error=${encodeURIComponent("Choose a new date.")}`);
+  }
+
+  const [income] = await sql`
+    SELECT id, income_date, category_account_id, source, amount, payment_account_id, notes, journal_entry_id, voided_at
+    FROM income WHERE id = ${incomeId}
+  `;
+  if (!income) redirect(`/income?error=${encodeURIComponent("Income entry not found.")}`);
+  if (income.voided_at) redirect(`/income?error=${encodeURIComponent("This income entry is already voided.")}`);
+
+  const oldDate = toISODate(income.income_date);
+  if (oldDate === newDate) {
+    redirect(`/income?error=${encodeURIComponent("Choose a different date to correct to.")}`);
+  }
+
+  const originalLines = await sql`SELECT account_id, debit, credit FROM journal_lines WHERE entry_id = ${income.journal_entry_id}`;
+  const [originalEntry] = await sql`SELECT description FROM journal_entries WHERE id = ${income.journal_entry_id}`;
+
+  let error: string | null = null;
+  let newIncomeId: number | undefined;
+  try {
+    await voidJournalEntry({
+      originalEntryId: income.journal_entry_id,
+      reverseDescriptionPrefix: "Correct income date",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        await tx`UPDATE income SET voided_at = now(), voided_by = ${session.user.id} WHERE id = ${incomeId}`;
+
+        const [newEntry] = await tx`
+          INSERT INTO journal_entries (entry_date, description, source_type, source_id, created_by)
+          VALUES (${newDate}, ${originalEntry.description}, 'date_correction', NULL, ${session.user.id})
+          RETURNING id
+        `;
+        for (const line of originalLines) {
+          await tx`
+            INSERT INTO journal_lines (entry_id, account_id, debit, credit)
+            VALUES (${newEntry.id}, ${line.account_id}, ${line.debit}, ${line.credit})
+          `;
+        }
+
+        const [newIncome] = await tx`
+          INSERT INTO income (
+            income_date, category_account_id, source, amount, payment_account_id, notes, journal_entry_id, created_by
+          )
+          VALUES (
+            ${newDate}, ${income.category_account_id}, ${income.source}, ${income.amount}, ${income.payment_account_id}, ${income.notes}, ${newEntry.id}, ${session.user.id}
+          )
+          RETURNING id
+        `;
+        newIncomeId = newIncome.id;
+
+        await tx`UPDATE journal_entries SET source_id = ${newIncome.id} WHERE id = ${newEntry.id}`;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "correct_date",
+      entityType: "income",
+      entityId: incomeId,
+      details: { oldDate, newDate, newIncomeId, reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not correct the income entry's date.";
   }
 
   if (error) redirect(`/income?error=${encodeURIComponent(error)}`);

@@ -5,8 +5,8 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getCashOrBankAccounts } from "@/lib/controlAccounts";
 import { formatCurrency } from "@/lib/currency";
 import { Fragment } from "react";
-import { createIncome, voidIncome, updateIncomeNotes, reclassifyIncome } from "./actions";
-import { TrendingUp, Ban, Plus, ArrowRightLeft } from "lucide-react";
+import { createIncome, voidIncome, updateIncomeNotes, reclassifyIncome, correctIncomeDate } from "./actions";
+import { TrendingUp, Ban, Plus, ArrowRightLeft, CalendarClock } from "lucide-react";
 import InlineEditField from "../InlineEditField";
 import Disclosure from "../Disclosure";
 import HideVoidedToggle from "../HideVoidedToggle";
@@ -114,6 +114,18 @@ export default async function IncomePage({
                                       </option>
                                     ))}
                                 </select>
+                                <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
+                                <button type="submit" className="text-xs">
+                                  Confirm
+                                </button>
+                              </form>
+                            </Disclosure>
+                          )}
+                          {canVoid && (
+                            <Disclosure label="Correct date" icon={<CalendarClock className="h-3.5 w-3.5" />}>
+                              <form action={correctIncomeDate} className="flex flex-wrap items-center gap-1.5">
+                                <input type="hidden" name="incomeId" value={i.id} />
+                                <input name="newDate" type="date" required style={{ width: 130 }} />
                                 <input name="reason" placeholder="Reason (optional)" style={{ width: 130 }} />
                                 <button type="submit" className="text-xs">
                                   Confirm
