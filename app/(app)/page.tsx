@@ -108,8 +108,21 @@ export default async function DashboardPage({
 
   const recentEntries = await sql`
     SELECT je.id, je.entry_date, je.description, je.source_type, je.voided_at,
-      (SELECT COALESCE(SUM(debit), 0) FROM journal_lines WHERE entry_id = je.id) AS amount
+      (SELECT COALESCE(SUM(debit), 0) FROM journal_lines WHERE entry_id = je.id) AS amount,
+      COALESCE(exp.notes, inc.notes, inv.notes, pay.notes, cn.reason,
+        orig_exp.notes, orig_inc.notes, orig_inv.notes, orig_pay.notes, orig_cn.reason) AS notes
     FROM journal_entries je
+    LEFT JOIN expenses exp ON exp.journal_entry_id = je.id
+    LEFT JOIN income inc ON inc.journal_entry_id = je.id
+    LEFT JOIN invoices inv ON inv.journal_entry_id = je.id
+    LEFT JOIN payments pay ON pay.journal_entry_id = je.id
+    LEFT JOIN credit_notes cn ON cn.journal_entry_id = je.id
+    LEFT JOIN journal_entries orig_je ON je.source_type = 'void' AND orig_je.id = je.source_id
+    LEFT JOIN expenses orig_exp ON orig_exp.journal_entry_id = orig_je.id
+    LEFT JOIN income orig_inc ON orig_inc.journal_entry_id = orig_je.id
+    LEFT JOIN invoices orig_inv ON orig_inv.journal_entry_id = orig_je.id
+    LEFT JOIN payments orig_pay ON orig_pay.journal_entry_id = orig_je.id
+    LEFT JOIN credit_notes orig_cn ON orig_cn.journal_entry_id = orig_je.id
     ORDER BY je.created_at DESC
     LIMIT 15
   `;
@@ -279,6 +292,7 @@ export default async function DashboardPage({
                 <td>
                   {entry.description}
                   {entry.voided_at ? " (voided)" : ""}
+                  {entry.notes && <div className="text-xs text-muted">{entry.notes}</div>}
                 </td>
                 <td>{entry.source_type}</td>
                 <td className="text-right">{formatCurrency(Number(entry.amount))}</td>

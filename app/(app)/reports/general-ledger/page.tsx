@@ -36,9 +36,22 @@ export default async function GeneralLedgerPage({
     `;
 
     const lines = await sql`
-      SELECT jl.id, je.entry_date, je.description, je.source_type, je.voided_at, jl.debit, jl.credit
+      SELECT jl.id, je.entry_date, je.description, je.source_type, je.voided_at, jl.debit, jl.credit,
+        COALESCE(exp.notes, inc.notes, inv.notes, pay.notes, cn.reason,
+          orig_exp.notes, orig_inc.notes, orig_inv.notes, orig_pay.notes, orig_cn.reason) AS notes
       FROM journal_lines jl
       JOIN journal_entries je ON je.id = jl.entry_id
+      LEFT JOIN expenses exp ON exp.journal_entry_id = je.id
+      LEFT JOIN income inc ON inc.journal_entry_id = je.id
+      LEFT JOIN invoices inv ON inv.journal_entry_id = je.id
+      LEFT JOIN payments pay ON pay.journal_entry_id = je.id
+      LEFT JOIN credit_notes cn ON cn.journal_entry_id = je.id
+      LEFT JOIN journal_entries orig_je ON je.source_type = 'void' AND orig_je.id = je.source_id
+      LEFT JOIN expenses orig_exp ON orig_exp.journal_entry_id = orig_je.id
+      LEFT JOIN income orig_inc ON orig_inc.journal_entry_id = orig_je.id
+      LEFT JOIN invoices orig_inv ON orig_inv.journal_entry_id = orig_je.id
+      LEFT JOIN payments orig_pay ON orig_pay.journal_entry_id = orig_je.id
+      LEFT JOIN credit_notes orig_cn ON orig_cn.journal_entry_id = orig_je.id
       WHERE jl.account_id = ${accountId} AND je.entry_date BETWEEN ${start} AND ${end}
       ORDER BY je.entry_date, jl.id
     `;
@@ -98,6 +111,11 @@ export default async function GeneralLedgerPage({
                 <td>
                   {l.description}
                   {l.voided_at ? " (voided)" : ""}
+                  {l.notes && (
+                    <div style={{ fontSize: "0.85em", color: "var(--color-text-muted)", marginTop: 2 }}>
+                      {l.notes}
+                    </div>
+                  )}
                 </td>
                 <td>{l.source_type}</td>
                 <td style={{ textAlign: "right" }}>{Number(l.debit) ? formatCurrency(Number(l.debit)) : ""}</td>
