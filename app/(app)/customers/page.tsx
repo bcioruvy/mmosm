@@ -3,7 +3,7 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { createCustomer, updateCustomer, setCustomerActive } from "./actions";
-import { Users, UserX, UserCheck, Plus } from "lucide-react";
+import { Users, UserX, UserCheck, Plus, History } from "lucide-react";
 
 export default async function CustomersPage({
   searchParams,
@@ -35,6 +35,7 @@ export default async function CustomersPage({
               <th>Name / contact</th>
               <th>Status</th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -52,6 +53,12 @@ export default async function CustomersPage({
                   </form>
                 </td>
                 <td>{c.is_active ? "Active" : "Inactive"}</td>
+                <td>
+                  <a href={`/customers/${c.id}`} className="inline-flex items-center gap-1.5">
+                    <History className="h-3.5 w-3.5" />
+                    View transactions
+                  </a>
+                </td>
                 <td>
                   <form action={setCustomerActive}>
                     <input type="hidden" name="id" value={c.id} />
