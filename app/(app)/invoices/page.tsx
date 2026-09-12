@@ -5,12 +5,13 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
 import { createInvoice } from "./actions";
 import InvoiceLineEditor from "./InvoiceLineEditor";
+import HideVoidedToggle from "../HideVoidedToggle";
 import { FileText, Plus } from "lucide-react";
 
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: { error?: string; success?: string; showVoided?: string };
 }) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
@@ -40,6 +41,10 @@ export default async function InvoicesPage({
     products = [];
   }
 
+  const showVoided = searchParams.showVoided === "1";
+  const visibleInvoices = showVoided ? invoices : invoices.filter((inv: any) => inv.status !== "void");
+  const hiddenCount = invoices.length - visibleInvoices.length;
+
   return (
     <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -48,6 +53,10 @@ export default async function InvoicesPage({
       </h1>
       {searchParams.error && <p className="mt-3 text-sm font-medium text-error">{searchParams.error}</p>}
       {searchParams.success && <p className="mt-3 text-sm font-medium text-success">Done.</p>}
+
+      <div className="mt-3">
+        <HideVoidedToggle showVoided={showVoided} hiddenCount={hiddenCount} />
+      </div>
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-surface p-5 shadow-sm">
         <table className="w-full min-w-[700px] border-collapse">
@@ -62,7 +71,7 @@ export default async function InvoicesPage({
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv: any) => (
+            {visibleInvoices.map((inv: any) => (
               <tr key={inv.id} className="border-b" style={{ opacity: inv.status === "void" ? 0.5 : 1 }}>
                 <td>
                   <a href={`/invoices/${inv.id}`}>{inv.invoice_number}</a>

@@ -8,11 +8,12 @@ import { voidPayment, updatePaymentNotes } from "./actions";
 import { CreditCard, Ban } from "lucide-react";
 import InlineEditField from "../InlineEditField";
 import Disclosure from "../Disclosure";
+import HideVoidedToggle from "../HideVoidedToggle";
 
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: { error?: string; success?: string; showVoided?: string };
 }) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
@@ -37,6 +38,10 @@ export default async function PaymentsPage({
     ORDER BY p.payment_date DESC, p.id DESC
   `;
 
+  const showVoided = searchParams.showVoided === "1";
+  const visiblePayments = showVoided ? payments : payments.filter((p: any) => !p.voided_at);
+  const hiddenCount = payments.length - visiblePayments.length;
+
   return (
     <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -49,6 +54,10 @@ export default async function PaymentsPage({
         Record a payment from an unpaid expense's row on <a href="/expenses">Expenses</a>, or from an open
         invoice's detail page.
       </p>
+
+      <div className="mt-3">
+        <HideVoidedToggle showVoided={showVoided} hiddenCount={hiddenCount} />
+      </div>
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-surface p-5 shadow-sm">
         <table className="w-full min-w-[800px] border-collapse">
@@ -63,7 +72,7 @@ export default async function PaymentsPage({
             </tr>
           </thead>
           <tbody>
-            {payments.map((p: any) => (
+            {visiblePayments.map((p: any) => (
               <Fragment key={p.id}>
                 <tr className="border-b" style={{ opacity: p.voided_at ? 0.5 : 1 }}>
                   <td className="pt-3">{new Date(p.payment_date).toLocaleDateString()}</td>

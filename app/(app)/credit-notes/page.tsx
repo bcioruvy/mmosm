@@ -8,11 +8,12 @@ import { voidCreditNote, updateCreditNoteReason } from "./actions";
 import { Undo2, Ban } from "lucide-react";
 import InlineEditField from "../InlineEditField";
 import Disclosure from "../Disclosure";
+import HideVoidedToggle from "../HideVoidedToggle";
 
 export default async function CreditNotesPage({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: { error?: string; success?: string; showVoided?: string };
 }) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
@@ -32,6 +33,10 @@ export default async function CreditNotesPage({
     ORDER BY cn.credit_date DESC, cn.id DESC
   `;
 
+  const showVoided = searchParams.showVoided === "1";
+  const visibleCreditNotes = showVoided ? creditNotes : creditNotes.filter((cn: any) => !cn.voided_at);
+  const hiddenCount = creditNotes.length - visibleCreditNotes.length;
+
   return (
     <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -43,6 +48,10 @@ export default async function CreditNotesPage({
       <p className="mt-3 text-sm text-muted">
         Issue a credit note from an eligible invoice's detail page under <a href="/invoices">Invoices</a>.
       </p>
+
+      <div className="mt-3">
+        <HideVoidedToggle showVoided={showVoided} hiddenCount={hiddenCount} />
+      </div>
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-surface p-5 shadow-sm">
         <table className="w-full min-w-[900px] border-collapse">
@@ -58,7 +67,7 @@ export default async function CreditNotesPage({
             </tr>
           </thead>
           <tbody>
-            {creditNotes.map((cn: any) => (
+            {visibleCreditNotes.map((cn: any) => (
               <Fragment key={cn.id}>
                 <tr className="border-b" style={{ opacity: cn.voided_at ? 0.5 : 1 }}>
                   <td className="pt-3">{cn.credit_note_number}</td>

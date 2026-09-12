@@ -10,11 +10,12 @@ import { recordExpensePayment } from "../payments/actions";
 import { Receipt, CreditCard, Ban, Plus, ArrowRightLeft } from "lucide-react";
 import InlineEditField from "../InlineEditField";
 import Disclosure from "../Disclosure";
+import HideVoidedToggle from "../HideVoidedToggle";
 
 export default async function ExpensesPage({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: { error?: string; success?: string; showVoided?: string };
 }) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
@@ -51,6 +52,10 @@ export default async function ExpensesPage({
     remaining: Math.round((Number(e.amount) - Number(e.paid)) * 100) / 100,
   }));
 
+  const showVoided = searchParams.showVoided === "1";
+  const visibleExpenses = showVoided ? expenses : expenses.filter((e: any) => !e.voided_at);
+  const hiddenCount = expenses.length - visibleExpenses.length;
+
   return (
     <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -59,6 +64,10 @@ export default async function ExpensesPage({
       </h1>
       {searchParams.error && <p className="mt-3 text-sm font-medium text-error">{searchParams.error}</p>}
       {searchParams.success && <p className="mt-3 text-sm font-medium text-success">Done.</p>}
+
+      <div className="mt-3">
+        <HideVoidedToggle showVoided={showVoided} hiddenCount={hiddenCount} />
+      </div>
 
       {cashAccounts.length === 0 && (
         <p className="mt-3 text-sm font-medium text-error">
@@ -80,7 +89,7 @@ export default async function ExpensesPage({
             </tr>
           </thead>
           <tbody>
-            {expenses.map((e: any) => (
+            {visibleExpenses.map((e: any) => (
               <Fragment key={e.id}>
                 <tr className="border-b" style={{ opacity: e.voided_at ? 0.5 : 1 }}>
                   <td className="pt-3">{new Date(e.expense_date).toLocaleDateString()}</td>
