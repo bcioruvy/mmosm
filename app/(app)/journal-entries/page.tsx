@@ -3,14 +3,21 @@ import sql from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/currency";
-import { createManualJournalEntry, voidManualJournalEntry, updateJournalEntryDescription } from "./actions";
+import {
+  createManualJournalEntry,
+  voidManualJournalEntry,
+  updateJournalEntryDescription,
+  correctManualJournalEntryDate,
+} from "./actions";
 import JournalLineEditor from "./JournalLineEditor";
-import { NotebookPen, Ban, Plus } from "lucide-react";
+import Disclosure from "../Disclosure";
+import HideVoidedToggle from "../HideVoidedToggle";
+import { NotebookPen, Ban, Plus, CalendarClock } from "lucide-react";
 
 export default async function JournalEntriesPage({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: { error?: string; success?: string; showVoided?: string };
 }) {
   const session = await auth();
   const permissions = session?.user?.permissions ?? [];
@@ -42,6 +49,10 @@ export default async function JournalEntriesPage({
     }))
   );
 
+  const showVoided = searchParams.showVoided === "1";
+  const visibleEntries = showVoided ? entries : entries.filter((e: any) => !e.voided_at);
+  const hiddenCount = entries.length - visibleEntries.length;
+
   return (
     <main className="max-w-screen-2xl px-6 py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -56,8 +67,12 @@ export default async function JournalEntriesPage({
       {searchParams.error && <p className="mt-3 text-sm font-medium text-error">{searchParams.error}</p>}
       {searchParams.success && <p className="mt-3 text-sm font-medium text-success">Done.</p>}
 
+      <div className="mt-3">
+        <HideVoidedToggle showVoided={showVoided} hiddenCount={hiddenCount} />
+      </div>
+
       <div className="mt-6 space-y-4">
-        {entries.map((e: any) => (
+        {visibleEntries.map((e: any) => (
           <div key={e.id} className="rounded-xl border border-border bg-surface p-5 shadow-sm" style={{ opacity: e.voided_at ? 0.5 : 1 }}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -83,14 +98,27 @@ export default async function JournalEntriesPage({
                 )}
               </div>
               {!e.voided_at && canVoid && (
-                <form action={voidManualJournalEntry} className="flex flex-wrap items-center gap-1.5">
-                  <input type="hidden" name="entryId" value={e.id} />
-                  <input name="reason" placeholder="Reason (optional)" style={{ width: 150 }} />
-                  <button type="submit" className="inline-flex items-center gap-1.5">
-                    <Ban className="h-3.5 w-3.5" />
-                    Void
-                  </button>
-                </form>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Disclosure label="Correct date" icon={<CalendarClock className="h-3.5 w-3.5" />}>
+                    <form action={correctManualJournalEntryDate} className="flex flex-wrap items-center gap-1.5">
+                      <input type="hidden" name="entryId" value={e.id} />
+                      <input name="newDate" type="date" required style={{ width: 150 }} />
+                      <input name="reason" placeholder="Reason (optional)" style={{ width: 150 }} />
+                      <button type="submit" className="text-xs">
+                        Confirm
+                      </button>
+                    </form>
+                  </Disclosure>
+                  <Disclosure label="Void" icon={<Ban className="h-3.5 w-3.5" />}>
+                    <form action={voidManualJournalEntry} className="flex flex-wrap items-center gap-1.5">
+                      <input type="hidden" name="entryId" value={e.id} />
+                      <input name="reason" placeholder="Reason (optional)" style={{ width: 150 }} />
+                      <button type="submit" className="text-xs">
+                        Confirm
+                      </button>
+                    </form>
+                  </Disclosure>
+                </div>
               )}
             </div>
             <table className="mt-3 w-full border-collapse">

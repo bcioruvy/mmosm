@@ -9,6 +9,10 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+function toISODate(d: string | Date) {
+  return new Date(d).toISOString().slice(0, 10);
+}
+
 type RawLine = { accountId: string; debit: string; credit: string };
 
 export async function createManualJournalEntry(formData: FormData) {
@@ -122,6 +126,89 @@ export async function updateJournalEntryDescription(formData: FormData) {
     });
   } catch (err: any) {
     error = err?.message || "Could not update description.";
+  }
+
+  if (error) redirect(`/journal-entries?error=${encodeURIComponent(error)}`);
+  revalidatePath("/journal-entries");
+  redirect("/journal-entries?success=1");
+}
+
+/**
+ * Fixes a manual entry posted with the wrong date without editing it in
+ * place — a date determines which reporting period a transaction lands
+ * in, so it goes through void + repost like any other change with real
+ * reporting consequences, not a raw edit. Same pattern as
+ * reclassifyExpense/Income: void the original via the unchanged
+ * voidJournalEntry mechanism, then post an identical replacement (same
+ * accounts, same debits/credits, same description) dated today's
+ * chosen new date, inside the same DB transaction — one atomic
+ * operation, one audit_log entry.
+ *
+ * Unlike Reclassify, there's no business row to insert alongside the
+ * new entry (a manual entry has none to begin with), so this only
+ * needs journal_entries + journal_lines. The new entry's source_type
+ * stays 'manual' — deliberately not a distinct value the way
+ * Reclassify used 'reclassify' — because this page's own list query is
+ * `WHERE source_type = 'manual'`; a different value would make the
+ * corrected entry vanish from view instead of showing up corrected.
+ */
+export async function correctManualJournalEntryDate(formData: FormData) {
+  const session = await requirePermission(PERMISSIONS.VOID_TRANSACTIONS);
+  const entryId = String(formData.get("entryId") ?? "");
+  const newDate = String(formData.get("newDate") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!entryId || !newDate) {
+    redirect(`/journal-entries?error=${encodeURIComponent("Choose a new date.")}`);
+  }
+
+  const [entry] = await sql`
+    SELECT id, entry_date, description, voided_at FROM journal_entries WHERE id = ${entryId} AND source_type = 'manual'
+  `;
+  if (!entry) redirect(`/journal-entries?error=${encodeURIComponent("Journal entry not found.")}`);
+  if (entry.voided_at) {
+    redirect(`/journal-entries?error=${encodeURIComponent("Can't correct the date on a voided entry.")}`);
+  }
+
+  const oldDate = toISODate(entry.entry_date);
+  if (oldDate === newDate) {
+    redirect(`/journal-entries?error=${encodeURIComponent("Choose a different date to correct to.")}`);
+  }
+
+  const originalLines = await sql`SELECT account_id, debit, credit FROM journal_lines WHERE entry_id = ${entryId}`;
+
+  let error: string | null = null;
+  let newEntryId: number | undefined;
+  try {
+    await voidJournalEntry({
+      originalEntryId: entry.id,
+      reverseDescriptionPrefix: "Correct date",
+      createdBy: session.user.id,
+      updateSource: async (tx) => {
+        const [newEntry] = await tx`
+          INSERT INTO journal_entries (entry_date, description, source_type, source_id, created_by)
+          VALUES (${newDate}, ${entry.description}, 'manual', NULL, ${session.user.id})
+          RETURNING id
+        `;
+        for (const line of originalLines) {
+          await tx`
+            INSERT INTO journal_lines (entry_id, account_id, debit, credit)
+            VALUES (${newEntry.id}, ${line.account_id}, ${line.debit}, ${line.credit})
+          `;
+        }
+        newEntryId = newEntry.id;
+      },
+    });
+
+    await logAudit({
+      actorId: session.user.id,
+      action: "correct_date",
+      entityType: "manual_journal_entry",
+      entityId: entryId,
+      details: { oldDate, newDate, newEntryId, reason },
+    });
+  } catch (err: any) {
+    error = err?.message || "Could not correct the entry's date.";
   }
 
   if (error) redirect(`/journal-entries?error=${encodeURIComponent(error)}`);
